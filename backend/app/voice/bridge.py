@@ -14,6 +14,7 @@ import random
 import uuid
 import structlog
 import websockets
+from sqlalchemy import select
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.config import settings
 from app.core.constants import ConversationState, CallStatus
@@ -125,14 +126,13 @@ async def voice_websocket_bridge(
         }
     })
 
-    openai_url = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
+    openai_url = "wss://api.openai.com/v1/realtime?model=gpt-realtime"
     headers = {
         "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-        "OpenAI-Beta": "realtime=v1",
     }
 
     try:
-        async with websockets.connect(openai_url, extra_headers=headers) as openai_ws:
+        async with websockets.connect(openai_url, additional_headers=headers) as openai_ws:
             logger.info("Connected to OpenAI Realtime API WebSocket", call_sid=call_sid)
 
             # Establish initial session configurations for Anya

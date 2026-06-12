@@ -76,11 +76,12 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                 
                 slot_list = []
                 for slot in slots:
+                    slot_status = slot.status.value if hasattr(slot.status, "value") else slot.status
                     slot_list.append({
                         "slot_id": str(slot.id),
                         "start_time": slot.start_time.strftime("%I:%M %p"),
                         "end_time": slot.end_time.strftime("%I:%M %p"),
-                        "status": slot.status.value,
+                        "status": slot_status,
                     })
 
                 logger.info("Executed get_slots", count=len(slot_list), date=target_date_str)
