@@ -10,14 +10,85 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import api from '@/lib/api';
 
 export default function DoctorsPage() {
-  const { doctors, isLoading, updateStatus } = useDoctors();
+  const { doctors, isLoading, updateStatus, createDoctor, deleteDoctor } = useDoctors();
   const { searchQuery, setSearchQuery, selectedDepartment } = useDashboardStore();
 
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
+  
+  // Department list state
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  // Add doctor form state
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formSpecialty, setFormSpecialty] = useState('General Medicine');
+  const [formDepartmentId, setFormDepartmentId] = useState('');
+  const [formQualification, setFormQualification] = useState('');
+  const [formExperience, setFormExperience] = useState('1');
+  const [formConsultationFee, setFormConsultationFee] = useState('500');
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await api.get('/departments');
+      const items = res.data?.items || [];
+      setDepartments(items);
+      if (items.length > 0) {
+        setFormDepartmentId(items[0].id);
+      }
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+    }
+  };
+
+  const handleOpenAddDoctor = () => {
+    setFormName('');
+    setFormEmail('');
+    setFormPhone('');
+    setFormSpecialty('General Medicine');
+    setFormQualification('');
+    setFormExperience('1');
+    setFormConsultationFee('500');
+    fetchDepartments();
+    setIsAddDoctorOpen(true);
+  };
+
+  const handleAddDoctorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName || !formPhone || !formDepartmentId) return;
+    try {
+      await createDoctor({
+        name: formName,
+        email: formEmail || null,
+        phone: formPhone,
+        specialty: formSpecialty,
+        departmentId: formDepartmentId,
+        qualification: formQualification,
+        experience: Number(formExperience),
+        consultationFee: Number(formConsultationFee),
+      });
+      setIsAddDoctorOpen(false);
+    } catch (err) {
+      console.error('Error creating doctor:', err);
+    }
+  };
+
+  const handleDeleteDoctor = async (id: string) => {
+    if (confirm('Are you sure you want to delete this doctor profile?')) {
+      try {
+        await deleteDoctor(id);
+      } catch (err) {
+        console.error('Error deleting doctor:', err);
+      }
+    }
+  };
+
 
   // Filter doctors
   const filteredDoctors = doctors.filter((doc) => {
@@ -56,11 +127,17 @@ export default function DoctorsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">On-Duty Clinical Staff</h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Monitor attending physician availability, consult fees, and active clinical appointment calendars.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">On-Duty Clinical Staff</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Monitor attending physician availability, consult fees, and active clinical appointment calendars.
+          </p>
+        </div>
+        <Button onClick={handleOpenAddDoctor} className="bg-voxmed-primary text-white text-xs font-bold px-4 py-2 hover:bg-voxmed-primary/95 flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">person_add</span>
+          Add Doctor
+        </Button>
       </div>
 
       {/* Search Header */}
@@ -163,14 +240,24 @@ export default function DoctorsPage() {
                     <span className="material-symbols-outlined text-[10px] leading-none">autorenew</span>
                   </button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[10px] font-semibold border-slate-200 hover:bg-slate-50"
-                    onClick={() => handleOpenSchedule(doc)}
-                  >
-                    Weekly Schedule
-                  </Button>
+                  <div className="flex gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] font-semibold border-slate-200 hover:bg-slate-50"
+                      onClick={() => handleOpenSchedule(doc)}
+                    >
+                      Weekly Schedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-rose-600 border-rose-100 hover:bg-rose-55 flex items-center justify-center"
+                      onClick={() => handleDeleteDoctor(doc.id)}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">delete</span>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -262,6 +349,135 @@ export default function DoctorsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── ADD DOCTOR DIALOG ── */}
+      <Dialog open={isAddDoctorOpen} onOpenChange={setIsAddDoctorOpen}>
+        <DialogContent className="sm:max-w-md bg-white shadow-2xl p-6">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <span className="material-symbols-outlined text-voxmed-primary">person_add</span>
+              Add Attending Physician
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Register a new doctor record under a department.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddDoctorSubmit} className="space-y-4 py-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Full Name *</label>
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="Dr. Name"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Email Address</label>
+              <Input
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="doctor@voxmed.com"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Phone Number *</label>
+              <Input
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                placeholder="+91 XXXXX XXXXX"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Specialty *</label>
+                <Input
+                  value={formSpecialty}
+                  onChange={(e) => setFormSpecialty(e.target.value)}
+                  placeholder="e.g. Pediatrics"
+                  required
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Department *</label>
+                <select
+                  value={formDepartmentId}
+                  onChange={(e) => setFormDepartmentId(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-transparent text-xs"
+                  required
+                >
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                  {departments.length === 0 && (
+                    <option value="">No departments available</option>
+                  )}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Qualification *</label>
+              <Input
+                value={formQualification}
+                onChange={(e) => setFormQualification(e.target.value)}
+                placeholder="e.g. MBBS, MD (Pediatrics)"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Experience (Years) *</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formExperience}
+                  onChange={(e) => setFormExperience(e.target.value)}
+                  required
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Consultation Fee (INR) *</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formConsultationFee}
+                  onChange={(e) => setFormConsultationFee(e.target.value)}
+                  required
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+            <DialogFooter className="border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddDoctorOpen(false)}
+                className="h-9 font-semibold text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-9 font-semibold text-xs bg-voxmed-primary text-white"
+              >
+                Add Attending
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -69,6 +69,7 @@ class DoctorResponse(DoctorBase):
     """Response containing doctor details."""
     id: uuid.UUID
     department_id: uuid.UUID
+    department_name: str | None = None
     schedules: list[DoctorScheduleResponse] = []
     created_at: datetime
     updated_at: datetime

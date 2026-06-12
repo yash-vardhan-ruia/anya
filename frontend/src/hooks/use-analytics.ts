@@ -148,7 +148,41 @@ export function useAnalytics() {
     queryFn: async () => {
       try {
         const res = await api.get('/billing/invoices');
-        return Array.isArray(res.data) ? res.data : (res.data.items || []);
+        const rawItems = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        return rawItems.map((inv: any) => {
+          const subtotal = (inv.subtotal || 0) / 100;
+          const tax = (inv.gst_amount || inv.tax || 0) / 100;
+          const total = (inv.total_amount || inv.total || 0) / 100;
+          const discount = 0;
+          
+          const doctorName = inv.doctor_name || 'Attending Staff';
+          const departmentName = inv.department_name || 'General Medicine';
+          
+          return {
+            id: inv.id,
+            invoiceNumber: inv.invoice_number || 'INV-UNKNOWN',
+            patientId: inv.patient_id || '',
+            patientName: inv.patient_name || 'Guest Patient',
+            doctorName: doctorName,
+            department: departmentName,
+            items: [
+              {
+                description: `OPD Consultation Fee - ${doctorName}`,
+                quantity: 1,
+                unitPrice: subtotal,
+                total: subtotal,
+              }
+            ],
+            subtotal: subtotal,
+            tax: tax,
+            discount: discount,
+            total: total,
+            status: inv.status || 'pending',
+            paymentMethod: inv.payment?.payment_method || 'card',
+            dueDate: new Date(new Date(inv.created_at || new Date()).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            createdAt: inv.created_at || new Date().toISOString(),
+          };
+        });
       } catch (err) {
         console.warn('API error fetching invoices:', err);
         return [];

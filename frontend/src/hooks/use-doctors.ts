@@ -62,11 +62,48 @@ export function useDoctors() {
     },
   });
 
+  // Mutate: Add new doctor
+  const createDoctorMutation = useMutation({
+    mutationFn: async (newDoc: any) => {
+      const payload = {
+        full_name: newDoc.name,
+        email: newDoc.email || null,
+        phone: newDoc.phone,
+        specialization: newDoc.specialty || 'General Medicine',
+        department_id: newDoc.departmentId,
+        qualification: newDoc.qualification || 'MD',
+        experience_years: Number(newDoc.experience) || 0,
+        consultation_fee: Number(newDoc.consultationFee) * 100, // INR to paise
+        is_active: true,
+      };
+      const res = await api.post('/doctors', payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+
+  // Mutate: Delete doctor
+  const deleteDoctorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.delete(`/doctors/${id}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctors'] });
+    },
+  });
+
   return {
     doctors,
     isLoading,
     error,
-    updateStatus: updateStatusMutation.mutate,
+    updateStatus: updateStatusMutation.mutateAsync,
     isUpdating: updateStatusMutation.isPending,
+    createDoctor: createDoctorMutation.mutateAsync,
+    isCreating: createDoctorMutation.isPending,
+    deleteDoctor: deleteDoctorMutation.mutateAsync,
+    isDeleting: deleteDoctorMutation.isPending,
   };
 }

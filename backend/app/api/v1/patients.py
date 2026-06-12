@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_admin
@@ -113,3 +113,25 @@ async def update_patient(
             detail="Patient not found",
         )
     return patient
+
+
+@router.delete(
+    "/{patient_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Delete patient",
+)
+async def delete_patient(
+    patient_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+) -> Response:
+    """Delete a patient record."""
+    success = await PatientService.delete_patient(db=db, patient_id=patient_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient not found",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

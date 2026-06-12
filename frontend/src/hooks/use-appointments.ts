@@ -42,7 +42,11 @@ export function useAppointments() {
   // Mutate: Update Appointment Status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: Appointment['status'] }) => {
-      const res = await api.patch(`/appointments/${id}/status`, { status });
+      // Map frontend status values to backend AppointmentStatus
+      // Frontend might use "scheduled" or "confirmed", backend uses: pending, confirmed, completed, cancelled, no_show
+      let backendStatus = status.toLowerCase();
+      if (backendStatus === 'scheduled') backendStatus = 'confirmed';
+      const res = await api.put(`/appointments/${id}`, { status: backendStatus });
       return res.data;
     },
     onSuccess: () => {
@@ -52,8 +56,28 @@ export function useAppointments() {
 
   // Mutate: Add new appointment
   const createAppointmentMutation = useMutation({
-    mutationFn: async (newApt: Omit<Appointment, 'id' | 'createdAt'>) => {
-      const res = await api.post('/appointments', newApt);
+    mutationFn: async (newApt: any) => {
+      const startTimeStr = newApt.time || newApt.startTime; // format: "HH:MM"
+      let endTimeStr = newApt.endTime;
+      if (!endTimeStr && startTimeStr) {
+        const [hours, minutes] = startTimeStr.split(':').map(Number);
+        const endMinutes = (minutes + 30) % 60;
+        const endHours = hours + Math.floor((minutes + 30) / 60);
+        endTimeStr = `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}:00`;
+      }
+      
+      const payload = {
+        patient_id: newApt.patientId,
+        doctor_id: newApt.doctorId,
+        slot_id: newApt.slotId,
+        department_id: newApt.departmentId,
+        appointment_date: newApt.date || newApt.appointmentDate,
+        start_time: startTimeStr ? (startTimeStr.length === 5 ? `${startTimeStr}:00` : startTimeStr).substring(0, 8) : null,
+        end_time: endTimeStr ? (endTimeStr.length === 5 ? `${endTimeStr}:00` : endTimeStr).substring(0, 8) : null,
+        symptoms: newApt.symptoms || null,
+        notes: newApt.notes || null,
+      };
+      const res = await api.post('/appointments', payload);
       return res.data;
     },
     onSuccess: () => {
@@ -65,9 +89,9 @@ export function useAppointments() {
     appointments,
     isLoading,
     error,
-    updateStatus: updateStatusMutation.mutate,
+    updateStatus: updateStatusMutation.mutateAsync,
     isUpdating: updateStatusMutation.isPending,
-    createAppointment: createAppointmentMutation.mutate,
+    createAppointment: createAppointmentMutation.mutateAsync,
     isCreating: createAppointmentMutation.isPending,
   };
 }

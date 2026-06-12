@@ -100,3 +100,16 @@ class Appointment(UUIDMixin, TimestampMixin, Base):
         uselist=False,
         lazy="selectin",
     )
+
+    @property
+    def patient_name(self) -> str | None:
+        return self.patient.full_name if self.patient else None
+
+    @property
+    def doctor_name(self) -> str | None:
+        return self.doctor.full_name if self.doctor else None
+
+    @property
+    def doctor_specialization(self) -> str | None:
+        return self.doctor.specialization if self.doctor else None
+

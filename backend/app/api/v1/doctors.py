@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import RoleChecker, get_current_admin
@@ -206,3 +206,26 @@ async def generate_slots(
         db=db, doctor_id=doctor_id, target_date=date
     )
     return slots
+
+
+@router.delete(
+    "/{doctor_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Delete doctor",
+    dependencies=[require_admin],
+)
+async def delete_doctor(
+    doctor_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+) -> Response:
+    """Delete a doctor record. Requires ADMIN or SUPER_ADMIN role."""
+    success = await DoctorService.delete_doctor(db=db, doctor_id=doctor_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Doctor not found",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+

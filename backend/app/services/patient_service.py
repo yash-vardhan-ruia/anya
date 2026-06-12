@@ -149,3 +149,15 @@ class PatientService:
         items = list(result.scalars().all())
 
         return total, items
+
+    @classmethod
+    async def delete_patient(cls, db: AsyncSession, patient_id: uuid.UUID) -> bool:
+        """Delete a patient record."""
+        patient = await cls.get_patient(db, patient_id)
+        if not patient:
+            return False
+        await db.delete(patient)
+        await db.commit()
+        logger.info("Deleted patient", id=str(patient_id))
+        return True
+

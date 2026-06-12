@@ -194,3 +194,15 @@ class DoctorService:
         stmt = select(DoctorSchedule).where(DoctorSchedule.doctor_id == doctor_id).order_by(DoctorSchedule.day_of_week.asc())
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @classmethod
+    async def delete_doctor(cls, db: AsyncSession, doctor_id: uuid.UUID) -> bool:
+        """Delete a doctor record."""
+        doctor = await cls.get_doctor(db, doctor_id)
+        if not doctor:
+            return False
+        await db.delete(doctor)
+        await db.commit()
+        logger.info("Deleted doctor", id=str(doctor_id))
+        return True
+

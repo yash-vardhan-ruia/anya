@@ -52,6 +52,10 @@ class AppointmentResponse(AppointmentBase):
     created_at: datetime
     updated_at: datetime
 
+    patient_name: str | None = None
+    doctor_name: str | None = None
+    doctor_specialization: str | None = None
+
     # Preloaded relationships as optional to avoid cycles/heavy loads
     patient: PatientResponse | None = None
     doctor: DoctorResponse | None = None

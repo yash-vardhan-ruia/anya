@@ -18,14 +18,113 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import type { Appointment } from '@/types/api';
+import api from '@/lib/api';
 
 export default function AppointmentsPage() {
-  const { appointments, isLoading, updateStatus } = useAppointments();
+  const { appointments, isLoading, updateStatus, createAppointment } = useAppointments();
   const { searchQuery, setSearchQuery, selectedDepartment } = useDashboardStore();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Booking dependencies states
+  const [isBookOpen, setIsBookOpen] = useState(false);
+  const [patientsList, setPatientsList] = useState<any[]>([]);
+  const [doctorsList, setDoctorsList] = useState<any[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+
+  // Booking form state
+  const [bookingPatientId, setBookingPatientId] = useState('');
+  const [bookingDoctorId, setBookingDoctorId] = useState('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingSlotId, setBookingSlotId] = useState('');
+  const [bookingSymptoms, setBookingSymptoms] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
+
+  const handleOpenBookModal = async () => {
+    setIsBookOpen(true);
+    setBookingPatientId('');
+    setBookingDoctorId('');
+    setBookingDate('');
+    setBookingSlotId('');
+    setBookingSymptoms('');
+    setBookingNotes('');
+    setAvailableSlots([]);
+
+    try {
+      const patRes = await api.get('/patients');
+      const docRes = await api.get('/doctors');
+      const pats = patRes.data?.items || [];
+      const docs = docRes.data?.items || [];
+      setPatientsList(pats);
+      setDoctorsList(docs);
+      if (pats.length > 0) setBookingPatientId(pats[0].id);
+      if (docs.length > 0) setBookingDoctorId(docs[0].id);
+    } catch (err) {
+      console.error('Error fetching booking dependencies:', err);
+    }
+  };
+
+  const handleDoctorOrDateChange = async (doctorId: string, dateStr: string) => {
+    if (!doctorId || !dateStr) return;
+    try {
+      // First, trigger slot generation just in case they aren't generated yet
+      try {
+        await api.post(`/doctors/${doctorId}/slots/generate`, null, {
+          params: { date: dateStr },
+        });
+      } catch (genErr) {
+        console.warn('Slot generation skipped or failed:', genErr);
+      }
+
+      const res = await api.get(`/doctors/${doctorId}/slots`, {
+        params: { date: dateStr },
+      });
+      const slots = res.data?.items || [];
+      // Filter out already booked/locked slots
+      const freeSlots = slots.filter((s: any) => s.status === 'available');
+      setAvailableSlots(freeSlots);
+      if (freeSlots.length > 0) {
+        setBookingSlotId(freeSlots[0].id);
+      } else {
+        setBookingSlotId('');
+      }
+    } catch (err) {
+      console.error('Error fetching slots:', err);
+      setAvailableSlots([]);
+      setBookingSlotId('');
+    }
+  };
+
+  const handleBookSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingPatientId || !bookingDoctorId || !bookingDate || !bookingSlotId) return;
+    
+    const selectedSlot = availableSlots.find(s => s.id === bookingSlotId);
+    if (!selectedSlot) return;
+
+    try {
+      const selectedDoc = doctorsList.find(d => d.id === bookingDoctorId);
+      const departmentId = selectedDoc?.departmentId || selectedDoc?.department_id; // handle mapped department ID if present
+
+      await createAppointment({
+        patientId: bookingPatientId,
+        doctorId: bookingDoctorId,
+        slotId: bookingSlotId,
+        departmentId: departmentId,
+        date: bookingDate,
+        time: selectedSlot.start_time,
+        symptoms: bookingSymptoms,
+        notes: bookingNotes,
+      });
+      
+      setIsBookOpen(false);
+    } catch (err) {
+      console.error('Booking failed:', err);
+    }
+  };
+
 
   // Filter appointments based on inputs
   const filteredAppointments = appointments.filter((apt) => {
@@ -65,11 +164,17 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">Clinical Appointments Calendar</h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Review, triage, and manage all patient bookings, clinical channels, and on-duty doctors.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Clinical Appointments Calendar</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Review, triage, and manage all patient bookings, clinical channels, and on-duty doctors.
+          </p>
+        </div>
+        <Button onClick={handleOpenBookModal} className="bg-voxmed-primary text-white text-xs font-bold px-4 py-2 hover:bg-voxmed-primary/95 flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">calendar_month</span>
+          Book Appointment
+        </Button>
       </div>
 
       {/* ── FILTER UTILITY BAR ── */}
@@ -351,6 +456,138 @@ export default function AppointmentsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── BOOK APPOINTMENT DIALOG ── */}
+      <Dialog open={isBookOpen} onOpenChange={setIsBookOpen}>
+        <DialogContent className="sm:max-w-md bg-white shadow-2xl p-6">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <span className="material-symbols-outlined text-voxmed-primary">calendar_month</span>
+              Book Clinical Slot
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Manually schedule an appointment slot for a registered patient.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleBookSubmit} className="space-y-4 py-4 text-xs">
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Select Patient *</label>
+              <select
+                value={bookingPatientId}
+                onChange={(e) => setBookingPatientId(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-input bg-transparent text-xs"
+                required
+              >
+                {patientsList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.phone})
+                  </option>
+                ))}
+                {patientsList.length === 0 && (
+                  <option value="">No patients found. Register a patient first.</option>
+                )}
+              </select>
+            </div>
+            
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Select Attending Doctor *</label>
+              <select
+                value={bookingDoctorId}
+                onChange={(e) => {
+                  setBookingDoctorId(e.target.value);
+                  handleDoctorOrDateChange(e.target.value, bookingDate);
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-transparent text-xs"
+                required
+              >
+                {doctorsList.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.specialty})
+                  </option>
+                ))}
+                {doctorsList.length === 0 && (
+                  <option value="">No doctors available.</option>
+                )}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Appointment Date *</label>
+                <Input
+                  type="date"
+                  value={bookingDate}
+                  onChange={(e) => {
+                    setBookingDate(e.target.value);
+                    handleDoctorOrDateChange(bookingDoctorId, e.target.value);
+                  }}
+                  required
+                  className="h-9 text-xs"
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Available Slot *</label>
+                <select
+                  value={bookingSlotId}
+                  onChange={(e) => setBookingSlotId(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-transparent text-xs"
+                  required
+                >
+                  {availableSlots.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.start_time.substring(0, 5)} - {s.end_time.substring(0, 5)}
+                    </option>
+                  ))}
+                  {availableSlots.length === 0 && (
+                    <option value="">No slots. Choose another date/doctor</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Symptoms</label>
+              <Input
+                value={bookingSymptoms}
+                onChange={(e) => setBookingSymptoms(e.target.value)}
+                placeholder="Fever, cough, body ache, etc."
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Additional Notes</label>
+              <Input
+                value={bookingNotes}
+                onChange={(e) => setBookingNotes(e.target.value)}
+                placeholder="Physician instructions or special requests"
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBookOpen(false)}
+                className="h-9 font-semibold text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-9 font-semibold text-xs bg-voxmed-primary text-white"
+                disabled={!bookingSlotId}
+              >
+                Book Slot
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

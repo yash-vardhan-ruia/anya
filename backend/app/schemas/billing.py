@@ -26,11 +26,18 @@ class InvoiceCreate(BaseModel):
     gst_rate: float = 18.0
 
 
+from datetime import date, datetime
+
 class InvoiceResponse(InvoiceBase):
     """Response containing basic invoice details."""
     id: uuid.UUID
     appointment_id: uuid.UUID
     patient_id: uuid.UUID
+    patient_name: str | None = None
+    appointment_date: date | None = None
+    doctor_name: str | None = None
+    department_name: str | None = None
+    status: str | None = None
     created_at: datetime
     updated_at: datetime
 

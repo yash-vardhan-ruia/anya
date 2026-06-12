@@ -6,6 +6,7 @@ including subtotal, GST, and total amount in paise.
 """
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Float, ForeignKey, Integer, String
@@ -76,3 +77,28 @@ class Invoice(UUIDMixin, TimestampMixin, Base):
         uselist=False,
         lazy="selectin",
     )
+
+    @property
+    def patient_name(self) -> str | None:
+        return self.patient.full_name if self.patient else None
+
+    @property
+    def appointment_date(self) -> datetime | None:
+        return self.appointment.appointment_date if self.appointment else None
+
+    @property
+    def doctor_name(self) -> str | None:
+        return self.appointment.doctor.full_name if (self.appointment and self.appointment.doctor) else None
+
+    @property
+    def department_name(self) -> str | None:
+        return self.appointment.department.name if (self.appointment and self.appointment.department) else None
+
+    @property
+    def status(self) -> str:
+        if self.payment:
+            return "paid" if self.payment.status == "captured" else "pending"
+        return "pending"
+
+
+

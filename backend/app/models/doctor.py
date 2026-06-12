@@ -73,3 +73,8 @@ class Doctor(UUIDMixin, TimestampMixin, Base):
         back_populates="doctor",
         lazy="selectin",
     )
+
+    @property
+    def department_name(self) -> str | None:
+        return self.department.name if self.department else None
+

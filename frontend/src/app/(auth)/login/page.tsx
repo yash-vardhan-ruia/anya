@@ -63,7 +63,6 @@ export default function LoginPage() {
         email: userData.email,
         name: userData.full_name,
         role: mappedRole,
-        avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150', // standard premium doctor avatar
         hospitalId: 'hosp-voxmed-core',
         createdAt: userData.created_at || new Date().toISOString(),
       };

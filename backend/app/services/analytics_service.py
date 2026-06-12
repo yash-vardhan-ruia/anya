@@ -668,9 +668,20 @@ class AnalyticsService:
 
             sentiment = "positive" if "thank you" in (sess.transcript or "").lower() else ("negative" if any(x in (sess.transcript or "").lower() for x in ["worry", "pain", "fever", "hurt", "bad"]) else "neutral")
             
+            patient_name = "Guest Patient"
+            if sess.patient:
+                patient_name = sess.patient.full_name
+            elif sess.from_number:
+                pat_res = await db.execute(select(Patient).where(Patient.phone == sess.from_number))
+                pat = pat_res.scalar_one_or_none()
+                if pat:
+                    patient_name = pat.full_name
+                else:
+                    patient_name = sess.from_number
+            
             interactions.append(RecentInteraction(
                 id=str(sess.id),
-                patientName=sess.patient.full_name if sess.patient else "Guest Patient",
+                patientName=patient_name,
                 type="appointment" if "complete" in str(sess.conversation_state).lower() else "inquiry",
                 channel="voice",
                 status="completed" if sess.status == "completed" else ("failed" if sess.status == "failed" else "in-progress"),
@@ -693,6 +704,8 @@ class AnalyticsService:
         today = datetime.date.today()
         
         for doc in doctors:
+            from app.models.slot import DoctorSlot
+            
             appt_stmt = select(func.count(Appointment.id)).where(
                 and_(Appointment.doctor_id == doc.id, Appointment.appointment_date == today)
             )
@@ -701,7 +714,28 @@ class AnalyticsService:
             total_stmt = select(func.count(Appointment.id)).where(Appointment.doctor_id == doc.id)
             total_count = (await db.execute(total_stmt)).scalar_one() or 0
             
-            util_rate = min(100.0, (appt_count * 100.0 / 8.0)) if appt_count > 0 else 0.0
+            # Count total and booked slots for today
+            slots_stmt = select(
+                func.count(DoctorSlot.id).label("total"),
+                func.count(func.nullif(DoctorSlot.status != "booked", True)).label("booked")  # count only status == "booked"
+            ).where(
+                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today)
+            )
+            # Alternatively, query booked and total count using separate or simple queries
+            booked_slots_stmt = select(func.count(DoctorSlot.id)).where(
+                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today, DoctorSlot.status == "booked")
+            )
+            total_slots_stmt = select(func.count(DoctorSlot.id)).where(
+                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today)
+            )
+            
+            booked_slots_count = (await db.execute(booked_slots_stmt)).scalar_one() or 0
+            total_slots_count = (await db.execute(total_slots_stmt)).scalar_one() or 0
+            
+            if total_slots_count > 0:
+                util_rate = (booked_slots_count * 100.0) / total_slots_count
+            else:
+                util_rate = 0.0
             
             utilization.append(DoctorUtilization(
                 id=str(doc.id),
