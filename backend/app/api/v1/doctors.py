@@ -31,7 +31,7 @@ require_admin = Depends(RoleChecker(allowed_roles=["ADMIN", "SUPER_ADMIN"]))
 
 
 @router.get(
-    "/",
+    "",
     response_model=DoctorListResponse,
     status_code=status.HTTP_200_OK,
     summary="List doctors",
@@ -58,7 +58,7 @@ async def list_doctors(
 
 
 @router.post(
-    "/",
+    "",
     response_model=DoctorResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new doctor",
