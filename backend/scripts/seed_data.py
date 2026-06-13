@@ -7,7 +7,7 @@ Seeds default admin user, hospital departments, active doctors, and recurring we
 import asyncio
 import datetime
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory, engine
@@ -39,21 +39,26 @@ async def seed() -> None:
         try:
             logger.info("Starting database seeding...")
 
-            # 1. Seed default super admin if none exists
+            # Migrate existing user accounts to 'admin' role
+            await session.execute(text("UPDATE admin_users SET role = 'admin' WHERE role != 'admin'"))
+            await session.commit()
+            logger.info("Migrated any existing admin user roles to 'admin'")
+
+            # 1. Seed default admin if none exists
             admin_stmt = select(AdminUser).where(AdminUser.email == "admin@carevoice.ai")
             existing_admin = (await session.execute(admin_stmt)).scalar_one_or_none()
             if not existing_admin:
-                super_admin = AdminUser(
+                default_admin = AdminUser(
                     email="admin@carevoice.ai",
                     hashed_password=hash_password("password123"),
                     full_name="Hospital Director",
-                    role=AdminRole.SUPER_ADMIN,
+                    role=AdminRole.ADMIN,
                     is_active=True,
                 )
-                session.add(super_admin)
-                logger.info("Seeded default Super Admin user (admin@carevoice.ai / password123)")
+                session.add(default_admin)
+                logger.info("Seeded default Admin user (admin@carevoice.ai / password123)")
             else:
-                logger.info("Super Admin user admin@carevoice.ai already exists, skipping...")
+                logger.info("Admin user admin@carevoice.ai already exists, skipping...")
 
             await session.commit()
             logger.info("Database seeding successfully completed!")

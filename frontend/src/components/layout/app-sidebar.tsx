@@ -165,7 +165,7 @@ export function AppSidebar() {
                 {user?.name || 'Loading Staff...'}
               </h4>
               <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-0.5">
-                {user?.role || 'clinical staff'}
+                {user?.role === 'admin' ? 'Administrator' : (user?.role || 'Administrator')}
               </p>
             </div>
           )}

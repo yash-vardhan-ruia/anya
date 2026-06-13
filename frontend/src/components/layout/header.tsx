@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useDashboardStore } from '@/stores/use-dashboard-store';
 import { useAuthStore } from '@/stores/use-auth-store';
 import { DEPARTMENTS } from '@/lib/constants';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,32 +29,10 @@ export function Header() {
     setDateRange,
   } = useDashboardStore();
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 'n-1',
-      title: 'High Pediatric Call Volume',
-      desc: 'Active calls routing to Pediatrics has exceeded threshold limits by 20%.',
-      type: 'warning',
-      time: '5 mins ago',
-      read: false,
-    },
-    {
-      id: 'n-2',
-      title: 'Appointment Booked (AI)',
-      desc: 'Zoya Patel successfully booked for Pediatric Consultation with Dr. Rajesh Nair.',
-      type: 'success',
-      time: '15 mins ago',
-      read: false,
-    },
-    {
-      id: 'n-3',
-      title: 'EHR Sync Warning',
-      desc: 'MedText Sentiment Parser experienced 120ms lag in DB connection write.',
-      type: 'info',
-      time: '1 hour ago',
-      read: true,
-    },
-  ]);
+  // Notifications start empty — will be populated from real backend events
+  const [notifications, setNotifications] = useState<
+    { id: string; title: string; desc: string; type: string; time: string; read: boolean }[]
+  >([]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -199,34 +177,40 @@ export function Header() {
               )}
             </div>
             <div className="max-h-64 overflow-y-auto custom-scrollbar">
-              {notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  className={cn(
-                    'p-3 border-b text-xs flex gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-default',
-                    !notif.read && 'bg-slate-50/50 dark:bg-zinc-800/20'
-                  )}
-                >
-                  {/* Status Indicator Dot */}
-                  <div
-                    className={cn(
-                      'h-2 w-2 rounded-full shrink-0 mt-1.5',
-                      notif.type === 'warning' && 'bg-amber-500',
-                      notif.type === 'success' && 'bg-emerald-500',
-                      notif.type === 'info' && 'bg-blue-500'
-                    )}
-                  ></div>
-                  <div className="flex-1 min-w-0">
-                    <h5 className={cn('font-semibold truncate', !notif.read && 'text-slate-950 dark:text-white')}>
-                      {notif.title}
-                    </h5>
-                    <p className="text-muted-foreground text-[11px] font-light mt-0.5 leading-normal">
-                      {notif.desc}
-                    </p>
-                    <span className="text-[9px] text-zinc-400 mt-1 block font-light">{notif.time}</span>
-                  </div>
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <span className="material-symbols-outlined text-3xl opacity-40">notifications_none</span>
+                  <p className="text-xs">No notifications</p>
                 </div>
-              ))}
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={cn(
+                      'p-3 border-b text-xs flex gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-default',
+                      !notif.read && 'bg-slate-50/50 dark:bg-zinc-800/20'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'h-2 w-2 rounded-full shrink-0 mt-1.5',
+                        notif.type === 'warning' && 'bg-amber-500',
+                        notif.type === 'success' && 'bg-emerald-500',
+                        notif.type === 'info' && 'bg-blue-500'
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h5 className={cn('font-semibold truncate', !notif.read && 'text-slate-950 dark:text-white')}>
+                        {notif.title}
+                      </h5>
+                      <p className="text-muted-foreground text-[11px] font-light mt-0.5 leading-normal">
+                        {notif.desc}
+                      </p>
+                      <span className="text-[9px] text-zinc-400 mt-1 block font-light">{notif.time}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -237,14 +221,16 @@ export function Header() {
         <div className="hidden md:flex items-center gap-2">
           <Avatar className="h-8 w-8 ring-2 ring-slate-100">
             <AvatarImage src={user?.avatar} />
-            <AvatarFallback className="bg-voxmed-primary text-white text-xs font-semibold">S</AvatarFallback>
+            <AvatarFallback className="bg-voxmed-primary text-white text-xs font-semibold">
+              {user?.name ? getInitials(user.name) : 'US'}
+            </AvatarFallback>
           </Avatar>
           <div className="flex flex-col text-left shrink-0">
             <span className="text-xs font-semibold leading-tight text-slate-800 dark:text-zinc-200">
-              {user?.name ? user.name.split(',')[0] : 'Dr. Sarah'}
+              {user?.name || 'Loading...'}
             </span>
             <span className="text-[9px] text-muted-foreground font-bold tracking-wider uppercase">
-              {user?.role || 'admin'}
+              {user?.role === 'admin' ? 'Administrator' : (user?.role || 'Administrator')}
             </span>
           </div>
         </div>

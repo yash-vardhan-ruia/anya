@@ -19,8 +19,8 @@ from app.schemas.auth import AdminResponse
 
 router = APIRouter()
 
-require_super_admin = Depends(RoleChecker(allowed_roles=["SUPER_ADMIN"]))
-require_admin = Depends(RoleChecker(allowed_roles=["ADMIN", "SUPER_ADMIN"]))
+require_super_admin = Depends(RoleChecker(allowed_roles=["admin"]))
+require_admin = Depends(RoleChecker(allowed_roles=["admin"]))
 
 
 @router.get(

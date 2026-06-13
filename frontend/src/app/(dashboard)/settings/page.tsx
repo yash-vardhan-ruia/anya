@@ -2,282 +2,312 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuthStore } from '@/stores/use-auth-store';
+import { getInitials } from '@/lib/utils';
+import api from '@/lib/api';
+
+// ─── Role labels ─────────────────────────────────────────────────────────────
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrator',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: 'bg-blue-100 text-blue-700 border-blue-200',
+};
 
 export default function SettingsPage() {
-  const [isSaving, setIsSaving] = useState(false);
+  const { user, accessToken, updateUser } = useAuthStore();
 
-  // Hospital settings state
-  const [hospitalName, setHospitalName] = useState('VoxMed Multispecialty Hospital Core');
-  const [voipTrunk, setVoipTrunk] = useState('+91 80 4920 1800');
-  const [timezone, setTimezone] = useState('Asia/Kolkata (IST)');
+  // ── Profile state ──────────────────────────────────────────
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Voice engine state
-  const [voiceProvider, setVoiceProvider] = useState('cartesia');
-  const [voiceModel, setVoiceModel] = useState('sonic-english-v2');
-  const [reassuranceLevel, setReassuranceLevel] = useState(85);
-  const [speechRate, setSpeechRate] = useState(1.05);
+  // ── Password change state ──────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showPasswords, setShowPasswords] = useState(false);
 
-  // Escalation limits
-  const [csatThreshold, setCsatThreshold] = useState(3.5);
-  const [confidenceFloor, setConfidenceFloor] = useState(70);
-  const [maxQueueHold, setMaxQueueHold] = useState(45);
+  const roleLabel = ROLE_LABELS[user?.role || ''] || user?.role || 'Unknown';
+  const roleColorClass = ROLE_COLORS[user?.role || ''] || 'bg-slate-100 text-slate-700 border-slate-200';
 
-  const handleSaveSettings = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      alert('Clinical operations profiles saved successfully! Config synchronized with CareVoice AI speech engines.');
-    }, 1000);
+  // ── Save display name ──────────────────────────────────────
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim()) return;
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      // Update the local auth store immediately (optimistic)
+      updateUser({ name: fullName.trim() });
+      setProfileMsg({ type: 'success', text: 'Display name updated successfully.' });
+    } catch {
+      setProfileMsg({ type: 'error', text: 'Failed to update profile.' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  // ── Change password ────────────────────────────────────────
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordMsg(null);
+
+    if (newPassword.length < 8) {
+      setPasswordMsg({ type: 'error', text: 'New password must be at least 8 characters.' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg({ type: 'error', text: 'Passwords do not match.' });
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      // Re-authenticate with current credentials to verify, then update
+      const formData = new FormData();
+      formData.append('username', user?.email || '');
+      formData.append('password', currentPassword);
+      await api.post('/auth/login', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      // If login succeeds (current password correct), we know credentials are valid.
+      // Note: a dedicated PATCH /auth/me/password endpoint would be ideal — for now,
+      // we surface a message asking the user to have an admin update the credential.
+      setPasswordMsg({
+        type: 'success',
+        text: 'Current password verified. To change your password, contact another Administrator to update your account.',
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setPasswordMsg({
+        type: 'error',
+        text: detail || 'Current password is incorrect.',
+      });
+    } finally {
+      setPasswordSaving(false);
+    }
   };
 
   return (
-    <div className="space-y-6 select-none max-w-4xl">
-      {/* Header */}
-      <div className="flex justify-between items-center border-b pb-4">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">System Settings & AI Core</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Configure hospital VoIP lines, select neural speech model nodes, and specify triage safety protocols.
-          </p>
-        </div>
-        <Button
-          onClick={handleSaveSettings}
-          className="gradient-primary h-9 px-4 text-xs font-semibold"
-          disabled={isSaving}
-        >
-          {isSaving ? 'Syncing Engine...' : 'Save Configurations'}
-        </Button>
+    <div className="space-y-6 max-w-3xl">
+      {/* ── Header ── */}
+      <div className="border-b pb-4">
+        <h1 className="text-2xl font-extrabold tracking-tight">Account & Profile</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          Manage your personal information and account security.
+        </p>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-10 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
-          <TabsTrigger value="general" className="text-xs font-bold py-1.5 rounded-md">
-            General EHR Details
-          </TabsTrigger>
-          <TabsTrigger value="voice" className="text-xs font-bold py-1.5 rounded-md">
-            AI Speech Engine
-          </TabsTrigger>
-          <TabsTrigger value="escalation" className="text-xs font-bold py-1.5 rounded-md">
-            Escalation Protocols
-          </TabsTrigger>
-        </TabsList>
+      {/* ── Profile Overview Card ── */}
+      <Card className="border shadow-sm">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-5">
+            {/* Avatar */}
+            <div className="h-16 w-16 rounded-full bg-voxmed-primary flex items-center justify-center text-white text-xl font-bold shadow-md shrink-0">
+              {user?.name ? getInitials(user.name) : 'US'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold truncate">{user?.name || '—'}</h2>
+              <p className="text-sm text-muted-foreground truncate">{user?.email || '—'}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span
+                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${roleColorClass}`}
+                >
+                  {roleLabel}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Active
+                </span>
+              </div>
+            </div>
+          </div>
 
-        {/* Tab 1: General Details */}
-        <TabsContent value="general" className="space-y-4 mt-4">
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Attending Facility Profile</CardTitle>
-              <CardDescription className="text-xs">
-                Timezones and telephone trunks registered for EHR direct scheduling integrations.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700">Hospital Facility Name</label>
+          <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t text-xs">
+            <div>
+              <span className="text-muted-foreground font-medium uppercase tracking-wider">User ID</span>
+              <p className="font-mono text-slate-700 dark:text-zinc-300 mt-0.5 truncate">{user?.id || '—'}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground font-medium uppercase tracking-wider">Member since</span>
+              <p className="text-slate-700 dark:text-zinc-300 mt-0.5">
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Edit Display Name ── */}
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-bold">Display Name</CardTitle>
+          <CardDescription className="text-xs">
+            Update the name shown across the platform.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            {profileMsg && (
+              <Alert variant={profileMsg.type === 'error' ? 'destructive' : 'default'} className={profileMsg.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ''}>
+                <span className="material-symbols-outlined text-sm shrink-0">
+                  {profileMsg.type === 'success' ? 'check_circle' : 'error'}
+                </span>
+                <AlertDescription className="ml-2 text-xs">{profileMsg.text}</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-lg">person</span>
                 <Input
-                  value={hospitalName}
-                  onChange={(e) => setHospitalName(e.target.value)}
-                  className="h-9 text-xs"
+                  className="pl-10"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your full name"
+                  required
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">SIP VoIP Telephone Trunk</label>
-                  <Input
-                    value={voipTrunk}
-                    onChange={(e) => setVoipTrunk(e.target.value)}
-                    className="h-9 text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Active Shift Timezone</label>
-                  <Input
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 2: Speech Synthesis Engine */}
-        <TabsContent value="voice" className="space-y-4 mt-4">
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Neural Speech Synthesizer</CardTitle>
-              <CardDescription className="text-xs">
-                Manage low-latency vocoders, Attending Nurse vocal tones, and reassuring clinical rates.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Voice Provider selector */}
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Speech Model Node</label>
-                  <div className="relative">
-                    <select
-                      value={voiceProvider}
-                      onChange={(e) => setVoiceProvider(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs ring-offset-background appearance-none cursor-pointer font-medium pr-8"
-                    >
-                      <option value="cartesia">Cartesia Sonic (ultra low latency 85ms)</option>
-                      <option value="elevenlabs">ElevenLabs Multilingual v2 (highly realistic)</option>
-                      <option value="openai">OpenAI TTS Realtime Stream (natural tone)</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-2 top-2 text-muted-foreground text-base pointer-events-none">
-                      arrow_drop_down
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Attending Vocal Tone</label>
-                  <div className="relative">
-                    <select
-                      value={voiceModel}
-                      onChange={(e) => setVoiceModel(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs ring-offset-background appearance-none cursor-pointer font-medium pr-8"
-                    >
-                      <option value="sonic-english-v2">Nurse Reassuring Clear Voice (Female)</option>
-                      <option value="sonic-english-pediatric">Pediatric Reassuring Calm Voice (Female)</option>
-                      <option value="sonic-english-senior">Attending Dr. Professional (Male)</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-2 top-2 text-muted-foreground text-base pointer-events-none">
-                      arrow_drop_down
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slider variables */}
-              <div className="grid grid-cols-2 gap-6 pt-3 border-t border-dashed">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="font-semibold text-slate-700">Vocal Reassurance Amplitude</label>
-                    <span className="font-bold text-voxmed-primary">{reassuranceLevel}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="50"
-                    max="100"
-                    value={reassuranceLevel}
-                    onChange={(e) => setReassuranceLevel(Number(e.target.value))}
-                    className="w-full accent-voxmed-primary cursor-pointer"
-                  />
-                  <span className="text-[10px] text-slate-400 font-light block leading-none">
-                    Controls soft/pitch frequency algorithms during pediatric/anxiety distress triages.
+              <Button
+                type="submit"
+                className="gradient-primary px-6 font-semibold"
+                disabled={profileSaving || fullName.trim() === user?.name}
+              >
+                {profileSaving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Saving...
                   </span>
-                </div>
+                ) : 'Save'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="font-semibold text-slate-700">Speech Cadence / Rate</label>
-                    <span className="font-bold text-voxmed-primary">{speechRate}x speed</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="80"
-                    max="150"
-                    step="5"
-                    value={speechRate * 100}
-                    onChange={(e) => setSpeechRate(Number(e.target.value) / 100)}
-                    className="w-full accent-voxmed-primary cursor-pointer"
-                  />
-                  <span className="text-[10px] text-slate-400 font-light block leading-none">
-                    Calibrates words-per-minute tempo. Slower rates auto-trigger on emergency symptom triage inputs.
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 3: Escalation Thresholds */}
-        <TabsContent value="escalation" className="space-y-4 mt-4">
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Active Call Safety Parameters</CardTitle>
-              <CardDescription className="text-xs">
-                Specify clinical emergency thresholds. CareVoice auto-escalates calls to live hospital operators under these bounds.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 text-xs">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700 block">CSAT Safety Floor</label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="1.0"
-                      max="5.0"
-                      value={csatThreshold}
-                      onChange={(e) => setCsatThreshold(Number(e.target.value))}
-                      className="h-9 text-xs"
-                    />
-                    <span className="text-[9px] text-slate-400 font-medium block mt-1 leading-normal">
-                      Transfer call to staff if post-sentence NLP sentiment slips below this rating.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700 block">EHR Confidence Floor</label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min="50"
-                      max="100"
-                      value={confidenceFloor}
-                      onChange={(e) => setConfidenceFloor(Number(e.target.value))}
-                      className="h-9 text-xs"
-                    />
-                    <span className="text-[9px] text-slate-400 font-medium block mt-1 leading-normal">
-                      Auto-transfer to receptionist if patient demographic matching falls below this accuracy percentage.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700 block">Max Trunk Queue Hold</label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min="10"
-                      max="300"
-                      value={maxQueueHold}
-                      onChange={(e) => setMaxQueueHold(Number(e.target.value))}
-                      className="h-9 text-xs font-mono"
-                    />
-                    <span className="text-[9px] text-slate-400 font-medium block mt-1 leading-normal">
-                      Max seconds patient may wait in SIP queues before auto-routing to reception operators.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 flex gap-3 mt-4 text-[11px] leading-relaxed text-amber-800">
-                <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
-                  gavel
+      {/* ── Change Password ── */}
+      <Card className="border shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-bold">Security</CardTitle>
+          <CardDescription className="text-xs">
+            Verify your current password. To set a new password, contact another Administrator.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            {passwordMsg && (
+              <Alert variant={passwordMsg.type === 'error' ? 'destructive' : 'default'} className={passwordMsg.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ''}>
+                <span className="material-symbols-outlined text-sm shrink-0">
+                  {passwordMsg.type === 'success' ? 'check_circle' : 'error'}
                 </span>
-                <div>
-                  <span className="font-bold block">EHR HIPAA & Medical Regulatory Notice</span>
-                  <span>
-                    Emergency symptom triage triggers (e.g. chest pain, breathing labor, severe anaphylaxis) bypass all settings, auto-routing instantly to clinical ER triage nurses while displaying emergency instructions on the recipient screen.
+                <AlertDescription className="ml-2 text-xs">{passwordMsg.text}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Current Password
+              </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-lg">lock</span>
+                <Input
+                  className="pl-10 pr-10"
+                  type={showPasswords ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords((v) => !v)}
+                  className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    {showPasswords ? 'visibility_off' : 'visibility'}
                   </span>
-                </div>
+                </button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  New Password
+                </label>
+                <Input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  minLength={8}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Confirm Password
+                </label>
+                <Input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="outline"
+              className="font-semibold"
+              disabled={passwordSaving || !currentPassword}
+            >
+              {passwordSaving ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Verifying...
+                </span>
+              ) : 'Verify Password'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* ── Danger Zone ── */}
+      <Card className="border border-red-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-bold text-red-600">Session</CardTitle>
+          <CardDescription className="text-xs">
+            Sign out of the platform on this device.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
+            onClick={() => {
+              document.cookie = 'auth-token=; path=/; max-age=0';
+              useAuthStore.getState().logout();
+              window.location.href = '/login';
+            }}
+          >
+            <span className="material-symbols-outlined text-base mr-2">logout</span>
+            Sign Out
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

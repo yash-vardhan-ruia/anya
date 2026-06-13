@@ -35,7 +35,7 @@ class AdminUser(UUIDMixin, TimestampMixin, Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[AdminRole] = mapped_column(
         String(20),
-        default=AdminRole.STAFF,
+        default=AdminRole.ADMIN,
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -11,6 +11,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import AdminRole
 from app.core.security import (
     RoleChecker,
     create_access_token,
@@ -71,14 +72,12 @@ async def login(
     response_model=AdminResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new admin user",
-    dependencies=[Depends(RoleChecker(allowed_roles=["SUPER_ADMIN"]))],
 )
 async def register(
     payload: AdminCreate,
     db: AsyncSession = Depends(get_db),
-    current_admin: AdminUser = Depends(get_current_admin),
 ) -> AdminResponse:
-    """Create a new admin user. Only SUPER_ADMIN can register new admins."""
+    """Create a new admin user."""
     result = await db.execute(
         select(AdminUser).where(AdminUser.email == payload.email)
     )
@@ -93,7 +92,7 @@ async def register(
         email=payload.email,
         full_name=payload.full_name,
         hashed_password=hash_password(payload.password),
-        role=payload.role,
+        role=AdminRole.ADMIN,
         is_active=True,
     )
     db.add(new_admin)

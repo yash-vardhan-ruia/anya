@@ -27,7 +27,7 @@ from app.services import DoctorService, SlotService
 
 router = APIRouter()
 
-require_admin = Depends(RoleChecker(allowed_roles=["ADMIN", "SUPER_ADMIN"]))
+require_admin = Depends(RoleChecker(allowed_roles=["admin"]))
 
 
 @router.get(

@@ -29,7 +29,7 @@ class AdminCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters long")
     full_name: str = Field(..., min_length=2, max_length=255)
-    role: AdminRole = AdminRole.STAFF
+    role: AdminRole = AdminRole.ADMIN
 
 
 class AdminResponse(BaseModel):

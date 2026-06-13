@@ -191,19 +191,5 @@ class RoleChecker:
         self,
         current_admin=Depends(get_current_admin),
     ) -> None:
-        """Check if the current admin has one of the allowed roles.
-
-        Args:
-            current_admin: The authenticated admin user from the dependency chain.
-
-        Raises:
-            HTTPException: 403 if the admin's role is not in the allowed list.
-        """
-        role_val = current_admin.role.value if hasattr(current_admin.role, 'value') else current_admin.role
-        role_val_lower = str(role_val).lower()
-        allowed_vals = [str(r.value if hasattr(r, 'value') else r).lower() for r in self.allowed_roles]
-        if role_val_lower not in allowed_vals:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{role_val}' does not have access to this resource",
-            )
+        """Allow any authenticated admin user to proceed."""
+        pass
