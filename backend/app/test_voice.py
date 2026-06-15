@@ -94,7 +94,19 @@ async def test_booking_flow():
 
     # 2. get_slots
     print("\nExecuting tool: get_slots...")
-    target_date = (datetime.date.today() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    target_date_obj = datetime.date.today() + datetime.timedelta(days=1)
+    target_date = target_date_obj.strftime("%Y-%m-%d")
+    
+    # Delete pre-existing slots for target_date to avoid full booking failures on re-runs
+    from sqlalchemy import text
+    async with async_session_factory() as db:
+        await db.execute(
+            text("DELETE FROM doctor_slots WHERE doctor_id = :doc_id AND date = :t_date"),
+            {"doc_id": uuid.UUID(doctor_id), "t_date": target_date_obj}
+        )
+        await db.commit()
+        print(f"Cleaned up doctor slots in DB for target date: {target_date}")
+
     slots_res = await execute_tool("get_slots", {"doctor_id": doctor_id, "target_date": target_date}, call_sid)
     assert slots_res["success"] is True, "get_slots failed"
     slots = slots_res["slots"]

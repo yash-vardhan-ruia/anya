@@ -51,8 +51,7 @@ export default function OverviewPage() {
   // Filter doctor utilization based on department filter
   const filteredDoctors = doctorUtilization.filter((doc) => {
     if (selectedDepartment === 'all') return true;
-    return doc.specialty.toLowerCase().includes(selectedDepartment.toLowerCase()) || 
-           (selectedDepartment === 'General Medicine' && doc.specialty.includes('Physician'));
+    return doc.department?.toLowerCase() === selectedDepartment.toLowerCase();
   });
 
   // Filter recent activities based on department or search query

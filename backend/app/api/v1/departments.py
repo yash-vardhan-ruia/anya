@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import AdminRole
 from app.core.security import RoleChecker, get_current_admin
 from app.database import get_db
 from app.models.admin_user import AdminUser
@@ -22,7 +23,7 @@ from app.services import DoctorService
 
 router = APIRouter()
 
-require_admin = Depends(RoleChecker(allowed_roles=["admin"]))
+require_admin = Depends(RoleChecker(allowed_roles=[AdminRole.SUPER_ADMIN, AdminRole.ADMIN]))
 
 
 @router.get(

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboardStore } from '@/stores/use-dashboard-store';
 import { useAuthStore } from '@/stores/use-auth-store';
-import { DEPARTMENTS } from '@/lib/constants';
+import api from '@/lib/api';
 import { cn, getInitials } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -28,6 +28,29 @@ export function Header() {
     dateRange,
     setDateRange,
   } = useDashboardStore();
+
+  // Dynamic departments state
+  const [departments, setDepartments] = useState<string[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchDepts = async () => {
+      try {
+        const res = await api.get('/departments');
+        const items = res.data?.items || [];
+        const names = items.map((d: any) => d.name);
+        if (active) {
+          setDepartments(names);
+        }
+      } catch (err) {
+        console.error('Failed to fetch departments in header:', err);
+      }
+    };
+    fetchDepts();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Notifications start empty — will be populated from real backend events
   const [notifications, setNotifications] = useState<
@@ -84,7 +107,7 @@ export function Header() {
               >
                 All Departments
               </DropdownMenuItem>
-              {DEPARTMENTS.map((dept) => (
+              {departments.map((dept) => (
                 <DropdownMenuItem
                   key={dept}
                   className={cn(

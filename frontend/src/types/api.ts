@@ -70,6 +70,7 @@ export interface DoctorUtilization {
   id: string;
   name: string;
   specialty: string;
+  department: string;
   avatar?: string;
   utilization: number;
   appointmentsToday: number;

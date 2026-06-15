@@ -78,6 +78,7 @@ class DoctorUtilization(BaseModel):
     id: str
     name: str
     specialty: str
+    department: str
     avatar: str | None = None
     utilization: float
     appointmentsToday: int

@@ -750,6 +750,7 @@ class AnalyticsService:
                 id=str(doc.id),
                 name=doc.full_name,
                 specialty=doc.specialization,
+                department=doc.department_name or "General Medicine",
                 avatar=None,
                 utilization=round(util_rate, 1),
                 appointmentsToday=appt_count,

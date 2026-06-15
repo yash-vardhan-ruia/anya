@@ -95,6 +95,21 @@ class DoctorService:
         return await db.get(Doctor, doctor_id)
 
     @classmethod
+    async def _update_department_active_status(cls, db: AsyncSession, department_id: uuid.UUID) -> None:
+        """Update department's active status based on if it has any active doctors."""
+        stmt = select(func.count(Doctor.id)).where(
+            Doctor.department_id == department_id,
+            Doctor.is_active == True
+        )
+        count_res = await db.execute(stmt)
+        active_docs_count = count_res.scalar_one()
+        
+        dept = await db.get(Department, department_id)
+        if dept:
+            dept.is_active = (active_docs_count > 0)
+            await db.flush()
+
+    @classmethod
     async def create_doctor(cls, db: AsyncSession, schema: DoctorCreate) -> Doctor:
         """Register a new doctor in a department."""
         new_doctor = Doctor(
@@ -109,6 +124,8 @@ class DoctorService:
             is_active=schema.is_active,
         )
         db.add(new_doctor)
+        await db.flush()
+        await cls._update_department_active_status(db, new_doctor.department_id)
         await db.commit()
         await db.refresh(new_doctor)
         logger.info("Registered new doctor", doctor_name=new_doctor.full_name, id=str(new_doctor.id))
@@ -123,9 +140,15 @@ class DoctorService:
         if not doctor:
             return None
 
+        old_dept_id = doctor.department_id
         update_data = schema.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(doctor, key, value)
+
+        await db.flush()
+        await cls._update_department_active_status(db, doctor.department_id)
+        if old_dept_id != doctor.department_id:
+            await cls._update_department_active_status(db, old_dept_id)
 
         await db.commit()
         await db.refresh(doctor)
@@ -201,7 +224,10 @@ class DoctorService:
         doctor = await cls.get_doctor(db, doctor_id)
         if not doctor:
             return False
+        dept_id = doctor.department_id
         await db.delete(doctor)
+        await db.flush()
+        await cls._update_department_active_status(db, dept_id)
         await db.commit()
         logger.info("Deleted doctor", id=str(doctor_id))
         return True

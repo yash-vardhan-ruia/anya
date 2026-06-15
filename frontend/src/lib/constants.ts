@@ -54,23 +54,7 @@ export const DOCTOR_STATUS_COLORS: Record<string, { bg: string; text: string; do
   offline:   { bg: 'bg-gray-100',  text: 'text-gray-500',  dot: 'bg-gray-400' },
 };
 
-// ── Departments ───────────────────────────────────────────────
-export const DEPARTMENTS = [
-  'Cardiology',
-  'Dermatology',
-  'ENT',
-  'Gastroenterology',
-  'General Medicine',
-  'Neurology',
-  'Oncology',
-  'Ophthalmology',
-  'Orthopedics',
-  'Pediatrics',
-  'Psychiatry',
-  'Pulmonology',
-  'Radiology',
-  'Urology',
-] as const;
+
 
 // ── API Config ────────────────────────────────────────────────
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
