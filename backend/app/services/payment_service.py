@@ -79,7 +79,7 @@ class PaymentService:
             payment_record = Payment(
                 invoice_id=invoice_id,
                 patient_id=invoice.patient_id,
-                amount=int(round(invoice.total_amount * 100)),
+                amount=invoice.total_amount,
                 razorpay_order_id=order_id,
                 status=PaymentStatus.CREATED,
             )
@@ -242,7 +242,7 @@ class PaymentService:
                         payment_record = Payment(
                             invoice_id=invoice.id,
                             patient_id=patient.id,
-                            amount=amount or int(round(invoice.total_amount * 100)),
+                            amount=float(amount) / 100.0 if amount else invoice.total_amount,
                             razorpay_order_id=payment_link_id,
                             razorpay_payment_id=razorpay_payment_id,
                             status=PaymentStatus.CAPTURED,

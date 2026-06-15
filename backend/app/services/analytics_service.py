@@ -491,7 +491,7 @@ class AnalyticsService:
         # 3. REVENUE METRICS
         revenue_stmt = select(func.sum(Payment.amount)).where(Payment.status == PaymentStatus.CAPTURED)
         total_revenue_paise = (await db.execute(revenue_stmt)).scalar_one() or 0
-        total_revenue = float(total_revenue_paise) / 100.0
+        total_revenue = float(total_revenue_paise)
 
         # Avg Revenue Per Patient
         total_patients = (await db.execute(select(func.count(Patient.id)))).scalar_one() or 0
@@ -541,7 +541,7 @@ class AnalyticsService:
                 d = datetime.date.today() - datetime.timedelta(days=i)
                 date_str = d.strftime("%m/%d")
                 day_rev_paise = rev_trend_map.get(d, 0)
-                rev_trend_list.append(DateRevenueAmount(date=date_str, amount=float(day_rev_paise) / 100.0))
+                rev_trend_list.append(DateRevenueAmount(date=date_str, amount=float(day_rev_paise)))
         except Exception as rev_err:
             logger.error("Error generating revenue 7-day trend", error=str(rev_err))
             rev_trend_list = []

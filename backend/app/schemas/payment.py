@@ -19,7 +19,7 @@ class PaymentOrderResponse(BaseModel):
     """Response containing created Razorpay order details for checkout."""
     payment_id: uuid.UUID
     invoice_id: uuid.UUID
-    amount: int = Field(..., description="Amount in paise")
+    amount: float = Field(..., description="Amount in Rupees")
     razorpay_order_id: str
     razorpay_key_id: str
     status: PaymentStatus
@@ -37,7 +37,7 @@ class PaymentResponse(BaseModel):
     id: uuid.UUID
     invoice_id: uuid.UUID
     patient_id: uuid.UUID
-    amount: int
+    amount: float
     razorpay_order_id: str | None = None
     razorpay_payment_id: str | None = None
     status: PaymentStatus

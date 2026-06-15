@@ -39,14 +39,19 @@ async def seed() -> None:
         try:
             logger.info("Starting database seeding...")
 
-            # Ensure status column exists on invoices table
+            # Ensure status column exists and types are correct on invoices/payments tables
             try:
                 await session.execute(text("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending' NOT NULL"))
+                await session.execute(text("ALTER TABLE invoices DROP COLUMN IF EXISTS payment_method"))
+                await session.execute(text("ALTER TABLE invoices ALTER COLUMN subtotal TYPE DOUBLE PRECISION"))
+                await session.execute(text("ALTER TABLE invoices ALTER COLUMN gst_amount TYPE DOUBLE PRECISION"))
+                await session.execute(text("ALTER TABLE invoices ALTER COLUMN total_amount TYPE DOUBLE PRECISION"))
+                await session.execute(text("ALTER TABLE payments ALTER COLUMN amount TYPE DOUBLE PRECISION"))
                 await session.commit()
-                logger.info("Ensured status column exists on invoices table.")
+                logger.info("Ensured correct database schema for invoices and payments tables.")
             except Exception as e:
                 await session.rollback()
-                logger.warning("Could not automatically alter invoices table", error=str(e))
+                logger.warning("Could not automatically alter tables schema", error=str(e))
 
             # Migrate existing user accounts to 'admin' or preserve 'super_admin'
             await session.execute(text("UPDATE admin_users SET role = 'admin' WHERE role NOT IN ('admin', 'super_admin')"))

@@ -8,7 +8,7 @@ tracking the full payment lifecycle.
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,7 +48,7 @@ class Payment(UUIDMixin, TimestampMixin, Base):
         ForeignKey("patients.id", ondelete="CASCADE"),
         nullable=False,
     )
-    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
     razorpay_order_id: Mapped[str | None] = mapped_column(
         String(255),
         unique=True,
