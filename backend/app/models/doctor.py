@@ -62,18 +62,21 @@ class Doctor(UUIDMixin, TimestampMixin, Base):
         "DoctorSchedule",
         back_populates="doctor",
         lazy="selectin",
+        cascade="all, delete-orphan",
         passive_deletes=True,
     )
     slots: Mapped[list["DoctorSlot"]] = relationship(
         "DoctorSlot",
         back_populates="doctor",
         lazy="selectin",
+        cascade="all, delete-orphan",
         passive_deletes=True,
     )
     appointments: Mapped[list["Appointment"]] = relationship(
         "Appointment",
         back_populates="doctor",
         lazy="selectin",
+        cascade="all, delete-orphan",
         passive_deletes=True,
     )
 

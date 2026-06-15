@@ -59,4 +59,6 @@ class DoctorSchedule(UUIDMixin, TimestampMixin, Base):
         "DoctorSlot",
         back_populates="schedule",
         lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
