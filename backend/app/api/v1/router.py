@@ -15,6 +15,7 @@ from app.api.v1 import (
     doctors,
     patients,
     payments,
+    voice_chat,
 )
 
 router = APIRouter(prefix="/v1")
@@ -29,3 +30,4 @@ router.include_router(payments.router, prefix="/payments", tags=["Payments"])
 router.include_router(calls.router, prefix="/calls", tags=["Calls"])
 router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 router.include_router(admin.router, prefix="/admin", tags=["Admin"])
+router.include_router(voice_chat.router, prefix="/voice-chat", tags=["Voice Chat"])

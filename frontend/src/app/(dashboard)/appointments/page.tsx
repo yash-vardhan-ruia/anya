@@ -167,9 +167,7 @@ export default function AppointmentsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Clinical Appointments Calendar</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Review, triage, and manage all patient bookings, clinical channels, and on-duty doctors.
-          </p>
+          
         </div>
         <Button onClick={handleOpenBookModal} className="bg-voxmed-primary text-white text-xs font-bold px-4 py-2 hover:bg-voxmed-primary/95 flex items-center gap-2">
           <span className="material-symbols-outlined text-sm">calendar_month</span>

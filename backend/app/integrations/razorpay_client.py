@@ -1,9 +1,11 @@
 """
 CareVoice AI Hospital Platform - Razorpay Integration Client.
 
-Wrapper around the official Razorpay SDK to create orders and verify webhook/payment signatures.
+Wrapper around the official Razorpay SDK to create orders, payment links,
+and verify webhook/payment signatures.
 """
 
+import uuid
 import razorpay
 import structlog
 from app.config import settings
@@ -21,22 +23,13 @@ class RazorpayClient:
 
         if self.key_id and self.key_secret:
             self._client = razorpay.Client(auth=(self.key_id, self.key_secret))
+            logger.info("Razorpay client configured successfully")
         else:
             logger.warning("Razorpay credentials not fully configured. API calls will be simulated.")
 
     def create_order(self, amount_paise: int, receipt_id: str) -> dict:
-        """Create a new Razorpay payment order.
-
-        Args:
-            amount_paise: The payment amount in paise (1 INR = 100 paise)
-            receipt_id: Internal ID (e.g. Invoice UUID) for reconciliation
-
-        Returns:
-            dict: The Razorpay order dictionary, or dummy dict if credentials missing.
-        """
         if not self._client:
-            logger.info("Razorpay Client simulated order creation", amount=amount_paise, receipt=receipt_id)
-            import uuid
+            logger.info("Razorpay simulated order creation", amount=amount_paise, receipt=receipt_id)
             return {
                 "id": f"order_sim_{uuid.uuid4().hex[:14]}",
                 "amount": amount_paise,
@@ -50,14 +43,86 @@ class RazorpayClient:
                 "amount": amount_paise,
                 "currency": "INR",
                 "receipt": receipt_id,
-                "payment_capture": 1,  # Auto-capture
+                "payment_capture": 1,
             }
             order = self._client.order.create(data=order_data)
-            logger.info("Razorpay order created successfully", order_id=order.get("id"), receipt=receipt_id)
+            logger.info("Razorpay order created successfully", order_id=order.get("id"))
             return order
         except Exception as e:
             logger.error("Failed to create Razorpay order", error=str(e), receipt=receipt_id)
             raise RuntimeError(f"Razorpay order creation failed: {e}")
+
+    def create_payment_link(
+        self,
+        amount_paise: int,
+        customer_name: str,
+        customer_phone: str,
+        description: str,
+        reference_id: str,
+        notes: dict | None = None,
+        expire_by: int | None = None,
+    ) -> dict:
+        """
+        Create a Razorpay Payment Link and optionally send SMS.
+
+        amount_paise: amount in paise, e.g. INR 590 = 59000
+        customer_phone: Indian mobile number with country code, e.g. +917453888015
+        expire_by: Unix timestamp when link expires
+        """
+
+        if not self._client:
+            link_id = f"plink_sim_{uuid.uuid4().hex[:14]}"
+            logger.info(
+                "Razorpay simulated payment link creation",
+                payment_link_id=link_id,
+                amount=amount_paise,
+                phone=customer_phone,
+            )
+            return {
+                "id": link_id,
+                "short_url": f"https://rzp.io/i/{link_id}",
+                "status": "created",
+                "amount": amount_paise,
+                "currency": "INR",
+                "reference_id": reference_id,
+                "notes": notes or {},
+            }
+
+        try:
+            data = {
+                "amount": amount_paise,
+                "currency": "INR",
+                "accept_partial": False,
+                "description": description,
+                "reference_id": reference_id,
+                "customer": {
+                    "name": customer_name,
+                    "contact": customer_phone,
+                },
+                "notify": {
+                    "sms": True,
+                    "email": False,
+                },
+                "reminder_enable": False,
+                "notes": notes or {},
+            }
+
+            if expire_by:
+                data["expire_by"] = expire_by
+
+            payment_link = self._client.payment_link.create(data)
+            logger.info(
+                "Razorpay payment link created successfully",
+                payment_link_id=payment_link.get("id"),
+                short_url=payment_link.get("short_url"),
+                amount=amount_paise,
+                phone=customer_phone,
+            )
+            return payment_link
+
+        except Exception as e:
+            logger.error("Failed to create Razorpay payment link", error=str(e), phone=customer_phone)
+            raise RuntimeError(f"Razorpay payment link creation failed: {e}")
 
     def verify_payment_signature(
         self,
@@ -65,13 +130,8 @@ class RazorpayClient:
         razorpay_payment_id: str,
         razorpay_signature: str,
     ) -> bool:
-        """Verify the cryptographic signature sent back from the Razorpay checkout.
-
-        Returns:
-            bool: True if signature is valid, False otherwise.
-        """
         if not self._client:
-            logger.info("Razorpay Client simulated signature verification (auto-verified)")
+            logger.info("Razorpay simulated signature verification")
             return True
 
         try:
@@ -84,15 +144,10 @@ class RazorpayClient:
             logger.info("Razorpay payment signature verified", order_id=razorpay_order_id)
             return True
         except Exception as e:
-            logger.warning("Razorpay payment signature verification failed", error=str(e), order_id=razorpay_order_id)
+            logger.warning("Razorpay payment signature verification failed", error=str(e))
             return False
 
     def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
-        """Verify Razorpay webhook signature using the webhook secret.
-
-        Returns:
-            bool: True if valid, False otherwise.
-        """
         if not settings.RAZORPAY_WEBHOOK_SECRET:
             logger.warning("RAZORPAY_WEBHOOK_SECRET is not configured, skipping webhook signature verification.")
             return True
@@ -101,11 +156,10 @@ class RazorpayClient:
             return True
 
         try:
-            # We can use HMAC-SHA256 verification manually or via utility
             self._client.utility.verify_webhook_signature(
                 body=payload.decode("utf-8"),
                 signature=signature,
-                secret=settings.RAZORPAY_WEBHOOK_SECRET
+                secret=settings.RAZORPAY_WEBHOOK_SECRET,
             )
             return True
         except Exception as e:
@@ -113,5 +167,4 @@ class RazorpayClient:
             return False
 
 
-# Singleton client instance
 razorpay_client = RazorpayClient()
