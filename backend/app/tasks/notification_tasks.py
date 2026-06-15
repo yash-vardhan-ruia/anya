@@ -46,3 +46,24 @@ def send_appointment_notifications(appointment_id_str: str, event_type: str) -> 
     asyncio.run(_async_send_notifications(appointment_id_str, event_type))
     
     return f"Notifications dispatched successfully for {appointment_id_str} ({event_type})"
+
+
+@celery_app.task(name="app.tasks.notification_tasks.send_payment_link_email_task", queue="notifications")
+def send_payment_link_email_task(
+    email: str, patient_name: str, doctor_name: str, amount_inr: float, payment_url: str
+) -> str:
+    """Celery task to send payment link email asynchronously."""
+    logger.info("Celery task received send_payment_link_email_task", email=email)
+    
+    # Run the async email dispatch within the sync Celery thread
+    asyncio.run(
+        NotificationService.send_payment_link_email(
+            email=email,
+            patient_name=patient_name,
+            doctor_name=doctor_name,
+            amount=amount_inr,
+            payment_url=payment_url,
+        )
+    )
+    return f"Payment link email dispatched successfully to {email}"
+

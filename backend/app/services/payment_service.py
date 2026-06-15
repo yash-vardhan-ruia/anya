@@ -182,15 +182,17 @@ class PaymentService:
 
                 patient_name = session.get("patient_name")
                 phone = session.get("phone")
+                email = session.get("email")
                 symptoms = session.get("symptoms")
                 slot_id = session.get("slot_id")
 
-                if not patient_name or not phone or not slot_id:
+                if not patient_name or not slot_id or not (phone or email):
                     logger.error(
                         "Redis session missing required booking details",
                         session_id=session_id,
                         patient_name=patient_name,
                         phone=phone,
+                        email=email,
                         slot_id=slot_id,
                     )
                     return
@@ -200,11 +202,21 @@ class PaymentService:
                     logger.error("Slot not found while creating appointment after payment", slot_id=slot_id)
                     return
 
-                patient = await PatientService.get_or_create_patient_by_phone(
-                    db=db,
-                    phone=phone,
-                    full_name=patient_name,
-                )
+                if email:
+                    patient = await PatientService.get_or_create_patient_by_email(
+                        db=db,
+                        email=email,
+                        full_name=patient_name,
+                    )
+                    # Sync phone if available but patient newly created without phone
+                    if phone and not patient.phone:
+                        patient.phone = phone
+                else:
+                    patient = await PatientService.get_or_create_patient_by_phone(
+                        db=db,
+                        phone=phone,
+                        full_name=patient_name,
+                    )
 
                 appointment_schema = AppointmentCreate(
                     patient_id=patient.id,

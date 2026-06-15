@@ -59,6 +59,7 @@ class VoiceSessionManager:
                 "patient_id": None,
                 "patient_name": None,
                 "phone": None,
+                "email": None,
                 "age": None,
                 "symptoms": None,
                 "department_id": None,

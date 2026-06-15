@@ -33,7 +33,7 @@ export function useDoctors() {
             email: doc.email || '',
             phone: doc.phone || '',
             specialty: doc.specialization || 'General Medicine',
-            department: doc.department?.name || 'General Medicine',
+            department: doc.department_name || doc.department?.name || 'General Medicine',
             qualification: doc.qualification || 'MD',
             experience: doc.experience_years || 0,
             consultationFee: doc.consultation_fee ? (doc.consultation_fee / 100) : 0,

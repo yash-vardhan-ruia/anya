@@ -97,37 +97,39 @@ class VoiceOrchestrator:
         # 3. Rule-based FSM transition overrides based on tool call milestones
         next_state = current_state
 
-        if executed_tool == "lock_slot":
+        if executed_tool == "find_doctor":
+            next_state = ConversationState.DOCTOR.value
+        elif executed_tool == "get_slots":
+            next_state = ConversationState.SLOT.value
+        elif executed_tool == "lock_slot":
             next_state = ConversationState.REVIEW.value
         elif executed_tool == "confirm_booking":
             next_state = ConversationState.PAYMENT.value
+        elif executed_tool == "send_payment_link":
+            next_state = ConversationState.PAYMENT.value
 
-        # 4. Implicit state transitions based on transcript content analysis if not transitioned by tool
-        elif user_transcript and executed_tool is None:
+        # 4. Implicit state transitions based on transcript content and session variables
+        if user_transcript and executed_tool is None:
             cleaned = user_transcript.lower().strip()
             
+            # Progress based on session variables
             if current_state == ConversationState.GREETING.value:
-                # Require at least 2 words to transition to Identity (avoids "hi" or "hello" overrides)
-                if len(cleaned.split()) >= 2:
+                if session.get("patient_name") or len(cleaned.split()) >= 2:
                     next_state = ConversationState.IDENTITY.value
             
             elif current_state == ConversationState.IDENTITY.value:
-                # If they confirmed identity, ask for symptoms
-                if any(x in cleaned for x in ["yes", "correct", "yeah", "sure", "that's me"]):
+                if (session.get("patient_name") and session.get("age") and session.get("email") and session.get("visit_type")) or any(x in cleaned for x in ["yes", "correct", "yeah", "sure", "that's me"]):
                     next_state = ConversationState.SYMPTOMS.value
             
             elif current_state == ConversationState.SYMPTOMS.value:
-                # Once they describe symptoms, we will search doctors (leads to DEPT or DOCTOR)
-                if len(cleaned.split()) >= 3:
+                if session.get("department_name") or len(cleaned.split()) >= 3:
                     next_state = ConversationState.DEPT.value
 
             elif current_state == ConversationState.PAYMENT.value:
-                # Once checkout link is explained, we can transition to confirm or exit
                 if any(x in cleaned for x in ["ok", "received", "got it", "done", "paid", "confirmed"]):
                     next_state = ConversationState.CONFIRM.value
 
             elif current_state == ConversationState.CONFIRM.value:
-                # Say goodbye
                 if any(x in cleaned for x in ["thanks", "thank you", "bye", "goodbye"]):
                     next_state = ConversationState.COMPLETE.value
 

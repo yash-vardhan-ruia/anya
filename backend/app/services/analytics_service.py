@@ -302,8 +302,6 @@ class AnalyticsService:
         health.append(SystemHealthItem(name="Redis Cache Session Store", status=redis_status, uptime=100.0, responseTime=redis_latency))
 
         # API integration credentials check
-        twilio_status = "operational" if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN else "degraded"
-        health.append(SystemHealthItem(name="Twilio Telecom SIP Trunk", status=twilio_status, uptime=99.95, responseTime=118.0))
 
         gemini_status = "operational" if settings.GEMINI_API_KEY else "degraded"
         health.append(SystemHealthItem(name="Gemini Live API Gateway", status=gemini_status, uptime=99.85, responseTime=242.0))

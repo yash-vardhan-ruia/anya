@@ -10,10 +10,10 @@ import datetime
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.appointment import Appointment
 from app.models.notification import Notification
 from app.models.invoice import Invoice
-from app.integrations.twilio_client import twilio_client
 from app.integrations.email_client import email_client
 
 logger = structlog.get_logger(__name__)
@@ -180,9 +180,8 @@ class NotificationService:
             f"({dept.name}) is scheduled for {appointment.appointment_date} at {appointment.start_time.strftime('%I:%M %p')}. "
             f"Payment of {amount_str} is pending. Please complete your checkout online."
         )
+        # SMS sending bypassed (Twilio disabled)
         try:
-            sms_sid = twilio_client.send_sms(to_phone=patient.phone, body=sms_body)
-            # Log SMS in database
             db_sms = Notification(
                 patient_id=patient.id,
                 type="appointment_created",
@@ -264,8 +263,8 @@ class NotificationService:
             f"on {appointment.appointment_date} at {appointment.start_time.strftime('%I:%M %p')} is CONFIRMED. "
             f"We look forward to seeing you. Thank you for choosing CareVoice!"
         )
+        # SMS sending bypassed (Twilio disabled)
         try:
-            sms_sid = twilio_client.send_sms(to_phone=patient.phone, body=sms_body)
             db_sms = Notification(
                 patient_id=patient.id,
                 type="appointment_confirmed",
@@ -345,8 +344,8 @@ class NotificationService:
             f"on {appointment.appointment_date} has been CANCELLED. If this was an error, "
             f"please reply to reschedule or call our help desk."
         )
+        # SMS sending bypassed (Twilio disabled)
         try:
-            sms_sid = twilio_client.send_sms(to_phone=patient.phone, body=sms_body)
             db_sms = Notification(
                 patient_id=patient.id,
                 type="appointment_cancelled",
@@ -399,3 +398,40 @@ class NotificationService:
                 logger.error("Failed to send cancellation Email", error=str(e), appointment_id=str(appointment_id))
         
         await db.commit()
+
+    @classmethod
+    async def send_payment_link_email(
+        cls, email: str, patient_name: str, doctor_name: str, amount: float, payment_url: str
+    ) -> None:
+        """Send a styled email containing the Razorpay payment link to the patient."""
+        subject = "Payment Link for Appointment - CareVoice AI Hospital"
+        preheader = f"Your appointment with Dr. {doctor_name} is ready. Complete your payment."
+        body_html = f"""
+        <div class="greeting">Dear {patient_name},</div>
+        <div class="message-box">
+            <p>Thank you for choosing CareVoice AI Hospital. Your booking request is ready.</p>
+            <p>Please complete your payment of <strong>INR {amount:.2f}</strong> to confirm your appointment with <strong>Dr. {doctor_name}</strong>.</p>
+        </div>
+        <div class="details-card">
+            <div class="details-row">
+                <span class="label">Consulting Doctor</span>
+                <span class="val">Dr. {doctor_name}</span>
+            </div>
+            <div class="details-row">
+                <span class="label">Amount Due</span>
+                <span class="val"><strong>INR {amount:.2f}</strong></span>
+            </div>
+        </div>
+        <div class="btn-container">
+            <a href="{payment_url}" class="btn">Pay Now & Confirm Booking</a>
+        </div>
+        <p style="text-align: center; color: #6b7280; font-size: 13px; margin-top: 20px;">
+            This link is valid for 15 minutes. Once payment is completed, you will receive a confirmation email.
+        </p>
+        """
+        email_content = cls._get_premium_email_layout(subject, preheader, body_html)
+        try:
+            await email_client.send_email(to_email=email, subject=subject, html_content=email_content)
+            logger.info("Payment link email sent successfully", email=email)
+        except Exception as e:
+            logger.error("Failed to send payment link email", error=str(e), email=email)

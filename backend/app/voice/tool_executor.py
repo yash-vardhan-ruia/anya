@@ -24,6 +24,69 @@ from app.voice.session_manager import VoiceSessionManager
 logger = structlog.get_logger(__name__)
 
 
+def map_department_name(dept_name: str) -> str:
+    if not dept_name:
+        return dept_name
+    normalized = dept_name.lower().strip()
+    
+    # Mapping dictionary to map clinical synonyms or colloquial terms to database department names
+    mappings = {
+        "general medicine": "General Medicine",
+        "general physician": "General Medicine",
+        "general practitioner": "General Medicine",
+        "physician": "General Medicine",
+        "gp": "General Medicine",
+        "medicine": "General Medicine",
+        "pediatrics": "Pediatrics",
+        "pediatrician": "Pediatrics",
+        "child": "Pediatrics",
+        "kids": "Pediatrics",
+        "cardiology": "Cardiology",
+        "cardiologist": "Cardiology",
+        "heart": "Cardiology",
+        "orthopedics": "Orthopedics",
+        "orthopedist": "Orthopedics",
+        "bone": "Orthopedics",
+        "bones": "Orthopedics",
+        "joints": "Orthopedics",
+        "dermatology": "Dermatology",
+        "dermatologist": "Dermatology",
+        "skin": "Dermatology",
+        "neurology": "Neurology",
+        "neurologist": "Neurology",
+        "brain": "Neurology",
+        "psychiatry": "Psychiatry",
+        "psychiatrist": "Psychiatry",
+        "mental": "Psychiatry",
+        "oncology": "Oncology",
+        "oncologist": "Oncology",
+        "cancer": "Oncology",
+        "ophthalmology": "Ophthalmology",
+        "ophthalmologist": "Ophthalmology",
+        "eye": "Ophthalmology",
+        "eyes": "Ophthalmology",
+        "ent": "ENT",
+        "ear": "ENT",
+        "nose": "ENT",
+        "throat": "ENT",
+        "pulmonology": "Pulmonology",
+        "pulmonologist": "Pulmonology",
+        "lungs": "Pulmonology",
+        "gastroenterology": "Gastroenterology",
+        "gastroenterologist": "Gastroenterology",
+        "stomach": "Gastroenterology",
+        "urology": "Urology",
+        "urologist": "Urology",
+    }
+    
+    # Check for direct or partial match
+    for key, value in mappings.items():
+        if key in normalized or normalized in key:
+            return value
+            
+    return dept_name
+
+
 async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
     """Route and execute tool calls requested by the Gemini Live API model asynchronously."""
     logger.info("Executing voice tool call", tool_name=name, arguments=arguments, call_sid=call_sid)
@@ -37,7 +100,8 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                 stmt = select(Doctor).join(Department).where(Doctor.is_active == True)
                 
                 if dept_name:
-                    stmt = stmt.where(Department.name.ilike(f"%{dept_name}%"))
+                    mapped_dept = map_department_name(dept_name)
+                    stmt = stmt.where(Department.name.ilike(f"%{mapped_dept}%"))
                 if search_query:
                     stmt = stmt.where(
                         Doctor.full_name.ilike(f"%{search_query}%")
@@ -191,6 +255,83 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                     "invoice_id": str(invoice.id) if invoice else None,
                     "total_amount_inr": invoice.total_amount if invoice else 0.0,
                     "message": "Appointment has been booked successfully and invoice is created."
+                }
+
+            elif name == "send_payment_link":
+                patient_name = arguments.get("patient_name")
+                patient_email = arguments.get("patient_email")
+                doctor_name = arguments.get("doctor_name")
+                amount_inr = arguments.get("amount_inr")
+                slot_id_str = arguments.get("slot_id")
+
+                try:
+                    slot_uuid = uuid.UUID(slot_id_str)
+                except (ValueError, TypeError):
+                    return {"success": False, "message": f"Invalid slot ID format: '{slot_id_str}'"}
+
+                # Create Razorpay payment link
+                import time
+                expire_by = int(time.time()) + (20 * 60) # 20 minutes expiry
+                amount_paise = int(round(amount_inr * 100))
+
+                try:
+                    # Retrieve slot date for metadata
+                    slot = await db.get(DoctorSlot, slot_uuid)
+                    slot_date_str = slot.date.isoformat() if slot else datetime.date.today().isoformat()
+                    
+                    payment_link = razorpay_client.create_payment_link(
+                        amount_paise=amount_paise,
+                        customer_name=patient_name,
+                        customer_phone=None, # We use email primary
+                        description=f"Appointment with {doctor_name}",
+                        reference_id=call_sid[:40],
+                        expire_by=expire_by,
+                        notes={
+                            "session_id": call_sid,
+                            "slot_id": slot_id_str,
+                            "patient_name": patient_name,
+                            "email": patient_email,
+                            "doctor_name": doctor_name,
+                            "slot_date": slot_date_str,
+                        },
+                    )
+                except Exception as pay_err:
+                    logger.error("Failed to create Razorpay payment link", error=str(pay_err))
+                    return {"success": False, "message": f"Failed to create payment link: {str(pay_err)}"}
+
+                payment_url = payment_link.get("short_url")
+
+                # Queue the payment link email asynchronously via Celery
+                try:
+                    from app.tasks.notification_tasks import send_payment_link_email_task
+                    send_payment_link_email_task.delay(
+                        email=patient_email,
+                        patient_name=patient_name,
+                        doctor_name=doctor_name,
+                        amount_inr=float(amount_inr),
+                        payment_url=payment_url,
+                    )
+                    logger.info("Queued payment link email via Celery", email=patient_email)
+                except Exception as task_err:
+                    logger.error("Failed to dispatch Celery send_payment_link_email_task", error=str(task_err))
+
+                # Update Redis Session Memory
+                await VoiceSessionManager.update_session(call_sid, {
+                    "patient_name": patient_name,
+                    "email": patient_email,
+                    "slot_id": slot_id_str,
+                    "payment_link_id": payment_link.get("id"),
+                    "payment_link_url": payment_url,
+                    "payment_expires_at": expire_by,
+                    "current_state": ConversationState.PAYMENT.value,
+                })
+
+                logger.info("Executed send_payment_link tool", success=True, payment_link_id=payment_link.get("id"))
+                return {
+                    "success": True,
+                    "payment_link_id": payment_link.get("id"),
+                    "payment_link_url": payment_url,
+                    "message": f"Payment link generated successfully and queued for email to {patient_email}."
                 }
 
             else:

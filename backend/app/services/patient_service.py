@@ -77,6 +77,49 @@ class PatientService:
         return new_patient
 
     @classmethod
+    async def get_patient_by_email(cls, db: AsyncSession, email: str) -> Patient | None:
+        """Retrieve a patient by their unique email address."""
+        stmt = select(Patient).where(Patient.email == email)
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_or_create_patient_by_email(
+        cls,
+        db: AsyncSession,
+        email: str,
+        full_name: str,
+    ) -> Patient:
+        """Find an existing patient by email or register a new one.
+
+        Used by the voice assistant flow to quickly identify patients.
+        """
+        patient = await cls.get_patient_by_email(db, email)
+        if patient:
+            logger.info("Patient identified by email", email=email, patient_id=str(patient.id))
+            return patient
+
+        # If not found, create new patient
+        mrn = cls._generate_mrn()
+        # Verify MRN uniqueness in case of collision
+        while True:
+            stmt = select(Patient).where(Patient.medical_record_number == mrn)
+            dup = (await db.execute(stmt)).scalar_one_or_none()
+            if not dup:
+                break
+            mrn = cls._generate_mrn()
+
+        new_patient = Patient(
+            email=email,
+            full_name=full_name,
+            medical_record_number=mrn,
+        )
+        db.add(new_patient)
+        await db.flush()  # Populates new_patient.id
+        logger.info("Registered new patient during call session via email", email=email, mrn=mrn, patient_id=str(new_patient.id))
+        return new_patient
+
+    @classmethod
     async def create_patient(cls, db: AsyncSession, schema: PatientCreate) -> Patient:
         """Create a new patient from the dashboard."""
         existing = await cls.get_patient_by_phone(db, schema.phone)

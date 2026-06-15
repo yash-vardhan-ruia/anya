@@ -93,4 +93,40 @@ REALTIME_TOOLS = [
             "required": ["patient_name", "phone", "slot_id"],
         },
     },
+    {
+        "type": "function",
+        "name": "send_payment_link",
+        "description": (
+            "Generate a Razorpay payment link and send it to the patient's email. "
+            "Call this after the patient reviews and confirms their booking details. "
+            "This is the final step in booking. Once this tool is executed, bid the patient farewell."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "patient_name": {
+                    "type": "string",
+                    "description": "Full legal name of the patient",
+                },
+                "patient_email": {
+                    "type": "string",
+                    "description": "Patient email address for notifications and payment link",
+                },
+                "doctor_name": {
+                    "type": "string",
+                    "description": "Name of the doctor being booked",
+                },
+                "amount_inr": {
+                    "type": "number",
+                    "description": "Total amount in INR (consultation fee + GST)",
+                },
+                "slot_id": {
+                    "type": "string",
+                    "description": "The unique locked UUID of the doctor slot to book",
+                },
+            },
+            "required": ["patient_name", "patient_email", "doctor_name", "amount_inr", "slot_id"],
+        },
+    },
 ]
+

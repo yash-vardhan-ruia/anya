@@ -56,17 +56,19 @@ class RazorpayClient:
         self,
         amount_paise: int,
         customer_name: str,
-        customer_phone: str,
-        description: str,
-        reference_id: str,
+        customer_phone: str | None = None,
+        customer_email: str | None = None,
+        description: str = "",
+        reference_id: str = "",
         notes: dict | None = None,
         expire_by: int | None = None,
     ) -> dict:
         """
-        Create a Razorpay Payment Link and optionally send SMS.
+        Create a Razorpay Payment Link and optionally send SMS/Email.
 
         amount_paise: amount in paise, e.g. INR 590 = 59000
         customer_phone: Indian mobile number with country code, e.g. +917453888015
+        customer_email: customer email address
         expire_by: Unix timestamp when link expires
         """
 
@@ -77,6 +79,7 @@ class RazorpayClient:
                 payment_link_id=link_id,
                 amount=amount_paise,
                 phone=customer_phone,
+                email=customer_email,
             )
             return {
                 "id": link_id,
@@ -89,18 +92,23 @@ class RazorpayClient:
             }
 
         try:
+            customer_info = {
+                "name": customer_name,
+            }
+            if customer_phone:
+                customer_info["contact"] = customer_phone
+            if customer_email:
+                customer_info["email"] = customer_email
+
             data = {
                 "amount": amount_paise,
                 "currency": "INR",
                 "accept_partial": False,
                 "description": description,
                 "reference_id": reference_id,
-                "customer": {
-                    "name": customer_name,
-                    "contact": customer_phone,
-                },
+                "customer": customer_info,
                 "notify": {
-                    "sms": True,
+                    "sms": False,
                     "email": False,
                 },
                 "reminder_enable": False,
@@ -117,11 +125,12 @@ class RazorpayClient:
                 short_url=payment_link.get("short_url"),
                 amount=amount_paise,
                 phone=customer_phone,
+                email=customer_email,
             )
             return payment_link
 
         except Exception as e:
-            logger.error("Failed to create Razorpay payment link", error=str(e), phone=customer_phone)
+            logger.error("Failed to create Razorpay payment link", error=str(e), phone=customer_phone, email=customer_email)
             raise RuntimeError(f"Razorpay payment link creation failed: {e}")
 
     def verify_payment_signature(
