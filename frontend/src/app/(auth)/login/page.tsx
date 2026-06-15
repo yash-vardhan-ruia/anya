@@ -17,153 +17,7 @@ const ROLE_LABELS: Record<string, string> = {
   staff: 'Clinical Staff',
 };
 
-// ─── Register staff form (only shown when mode === 'register') ────────────────
-function RegisterForm({ onBack }: { onBack: () => void }) {
-  const { accessToken } = useAuthStore();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const role = 'admin';
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    try {
-      await api.post(
-        '/auth/register',
-        { full_name: fullName, email, password, role },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      setSuccess(true);
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(detail || 'Failed to create account. Ensure you are logged in as an Administrator.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <div className="text-center space-y-4 py-6">
-        <div className="h-14 w-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
-          <span className="material-symbols-outlined text-3xl text-emerald-600">check_circle</span>
-        </div>
-        <div>
-          <h3 className="font-bold text-lg">Account Created</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            <span className="font-medium">{email}</span> can now log in with their credentials.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={onBack}
-        >
-          Back to Login
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleRegister} className="space-y-4">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle className="text-2xl font-bold tracking-tight">Register Administrator</CardTitle>
-        <CardDescription>
-          Create a new Administrator account. Requires a logged-in Administrator.
-        </CardDescription>
-      </CardHeader>
-
-      {error && (
-        <Alert variant="destructive">
-          <span className="material-symbols-outlined shrink-0 text-sm">error</span>
-          <AlertTitle className="ml-2">Registration Failed</AlertTitle>
-          <AlertDescription className="ml-2 text-xs font-light">{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" htmlFor="reg-name">
-          Full Name
-        </label>
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-lg">person</span>
-          <Input
-            id="reg-name"
-            className="pl-10"
-            type="text"
-            placeholder="Dr. Aisha Sharma"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" htmlFor="reg-email">
-          Email Address
-        </label>
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-lg">mail</span>
-          <Input
-            id="reg-email"
-            className="pl-10"
-            type="email"
-            placeholder="staff@hospital.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider" htmlFor="reg-password">
-          Password
-        </label>
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-lg">lock</span>
-          <Input
-            id="reg-password"
-            className="pl-10"
-            type="password"
-            placeholder="Min. 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
-        </div>
-      </div>
-
-
-
-      <div className="flex gap-3 pt-2">
-        <Button type="button" variant="outline" className="flex-1" onClick={onBack}>
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          className="flex-1 gradient-primary hover:opacity-95 font-medium"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <span className="flex items-center gap-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Creating...
-            </span>
-          ) : 'Create Account'}
-        </Button>
-      </div>
-    </form>
-  );
-}
 
 // ─── Main Login Page ──────────────────────────────────────────────────────────
 export default function LoginPage() {
@@ -233,12 +87,6 @@ export default function LoginPage() {
         <span className="text-sm font-bold tracking-tight text-voxmed-primary">VoxMed CareVoice</span>
       </div>
 
-      {mode === 'register' ? (
-        <CardContent className="pt-6">
-          <RegisterForm onBack={() => { setMode('login'); setError(null); }} />
-        </CardContent>
-      ) : (
-        <>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold tracking-tight">Sign In</CardTitle>
             <CardDescription>
@@ -324,20 +172,8 @@ export default function LoginPage() {
                   </span>
                 )}
               </Button>
-
-              <div className="w-full flex items-center justify-center pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => { setMode('register'); setError(null); }}
-                  className="text-xs text-muted-foreground hover:text-voxmed-primary hover:underline transition-colors"
-                >
-                  Register a new Administrator account
-                </button>
-              </div>
             </CardFooter>
           </form>
-        </>
-      )}
     </Card>
   );
 }

@@ -1,7 +1,7 @@
 """
 CareVoice AI Hospital Platform - Voice Tool Executor.
 
-Binds the OpenAI Realtime tool calling system to the async database session
+Binds the Gemini Live API tool calling system to the async database session
 and domain business services, returning clean JSON results to feed back to the AI.
 """
 
@@ -25,7 +25,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
-    """Route and execute tool calls requested by the OpenAI Realtime model asynchronously."""
+    """Route and execute tool calls requested by the Gemini Live API model asynchronously."""
     logger.info("Executing voice tool call", tool_name=name, arguments=arguments, call_sid=call_sid)
 
     async with async_session_factory() as db:
@@ -65,12 +65,22 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                 doctor_id_str = arguments.get("doctor_id")
                 target_date_str = arguments.get("target_date")
 
-                doctor_uuid = uuid.UUID(doctor_id_str)
+                try:
+                    doctor_uuid = uuid.UUID(doctor_id_str)
+                except (ValueError, TypeError):
+                    return {"success": False, "message": f"Invalid doctor ID format: '{doctor_id_str}'"}
+
                 # Parse date (format YYYY-MM-DD)
-                target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
+                try:
+                    target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    return {"success": False, "message": f"Invalid target date format: '{target_date_str}' (expected YYYY-MM-DD)"}
 
                 # Generate slots for today/tomorrow automatically on search to ensure they exist
-                await SlotService.generate_slots_for_doctor(db, doctor_uuid, target_date, target_date)
+                try:
+                    await SlotService.generate_slots_for_doctor(db, doctor_uuid, target_date, target_date)
+                except Exception as gen_exc:
+                    logger.warning("Failed to auto-generate slots for doctor", error=str(gen_exc), doctor_id=doctor_id_str)
 
                 slots = await SlotService.list_available_slots(db, doctor_uuid, target_date)
                 
@@ -89,7 +99,10 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
 
             elif name == "lock_slot":
                 slot_id_str = arguments.get("slot_id")
-                slot_uuid = uuid.UUID(slot_id_str)
+                try:
+                    slot_uuid = uuid.UUID(slot_id_str)
+                except (ValueError, TypeError):
+                    return {"success": False, "message": f"Invalid slot ID format: '{slot_id_str}'"}
 
                 # Attempt lock
                 locked = await SlotService.lock_slot(db, slot_uuid, locked_by=call_sid)
@@ -123,7 +136,20 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                 phone = arguments.get("phone")
                 slot_id_str = arguments.get("slot_id")
 
-                slot_uuid = uuid.UUID(slot_id_str)
+                try:
+                    slot_uuid = uuid.UUID(slot_id_str)
+                except (ValueError, TypeError):
+                    return {"success": False, "message": f"Invalid slot ID format: '{slot_id_str}'"}
+
+                # Normalize phone to +91 E.164-like format
+                if phone:
+                    phone = phone.replace(" ", "").replace("-", "")
+                    if not phone.startswith("+"):
+                        if len(phone) == 10:
+                            phone = "+91" + phone
+                        elif len(phone) == 12 and phone.startswith("91"):
+                            phone = "+" + phone
+
                 slot = await db.get(DoctorSlot, slot_uuid)
                 if not slot:
                     return {"success": False, "message": "Time slot not found."}
@@ -163,7 +189,7 @@ async def execute_tool(name: str, arguments: dict, call_sid: str) -> dict:
                     "success": True,
                     "appointment_id": str(appointment.id),
                     "invoice_id": str(invoice.id) if invoice else None,
-                    "total_amount_inr": (invoice.total_amount / 100.0) if invoice else 0.0,
+                    "total_amount_inr": invoice.total_amount if invoice else 0.0,
                     "message": "Appointment has been booked successfully and invoice is created."
                 }
 

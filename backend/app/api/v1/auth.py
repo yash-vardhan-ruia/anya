@@ -72,6 +72,7 @@ async def login(
     response_model=AdminResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new admin user",
+    dependencies=[Depends(RoleChecker([AdminRole.SUPER_ADMIN, AdminRole.ADMIN]))],
 )
 async def register(
     payload: AdminCreate,

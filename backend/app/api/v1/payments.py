@@ -109,11 +109,8 @@ async def list_payments(
     """List payments with optional filters for patient and status, with pagination."""
     skip = (page - 1) * page_size
     total, items = await PaymentService.list_payments(
-        db=db, skip=skip, limit=page_size, status=payment_status
+        db=db, skip=skip, limit=page_size, status=payment_status, patient_id=patient_id
     )
-    if patient_id:
-        items = [item for item in items if item.patient_id == patient_id]
-        total = len(items)
     return PaymentListResponse(total=total, items=items)
 
 

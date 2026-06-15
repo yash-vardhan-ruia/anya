@@ -100,6 +100,44 @@ export default function SettingsPage() {
     }
   };
 
+  // ── Register state ──────────────────────────────────────────
+  const [regFullName, setRegFullName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regSaving, setRegSaving] = useState(false);
+  const [regMsg, setRegMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleRegisterAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegMsg(null);
+    if (regPassword.length < 8) {
+      setRegMsg({ type: 'error', text: 'Password must be at least 8 characters.' });
+      return;
+    }
+    setRegSaving(true);
+    try {
+      await api.post(
+        '/auth/register',
+        {
+          full_name: regFullName.trim(),
+          email: regEmail.trim(),
+          password: regPassword,
+          role: 'admin'
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      setRegMsg({ type: 'success', text: `Administrator account for ${regEmail} created successfully.` });
+      setRegFullName('');
+      setRegEmail('');
+      setRegPassword('');
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setRegMsg({ type: 'error', text: detail || 'Failed to register new administrator.' });
+    } finally {
+      setRegSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* ── Header ── */}
@@ -371,6 +409,96 @@ export default function SettingsPage() {
                         Updating Security...
                       </span>
                     ) : 'Update Password'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* ── Register Administrator ── */}
+          <Card className="border shadow-sm bg-white dark:bg-zinc-900">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-black flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-voxmed-primary">person_add</span>
+                Register New Administrator
+              </CardTitle>
+              <CardDescription className="text-[11px] leading-relaxed">
+                Create a new administrator account for hospital staff. Requires an active administrator session.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <form onSubmit={handleRegisterAdmin} className="space-y-4 max-w-xl">
+                {regMsg && (
+                  <Alert variant={regMsg.type === 'error' ? 'destructive' : 'default'} className={regMsg.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900' : ''}>
+                    <span className="material-symbols-outlined text-sm shrink-0">
+                      {regMsg.type === 'success' ? 'check_circle' : 'error'}
+                    </span>
+                    <AlertDescription className="ml-2 text-xs">{regMsg.text}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-base">person</span>
+                    <Input
+                      className="pl-9 h-9 text-xs"
+                      value={regFullName}
+                      onChange={(e) => setRegFullName(e.target.value)}
+                      placeholder="e.g. Dr. Aisha Sharma"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-base">mail</span>
+                    <Input
+                      className="pl-9 h-9 text-xs"
+                      type="email"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      placeholder="e.g. staff@hospital.com"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-base">lock</span>
+                    <Input
+                      className="pl-9 h-9 text-xs"
+                      type="password"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      placeholder="Min. 8 characters"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    className="gradient-primary px-6 text-xs font-semibold h-9"
+                    disabled={regSaving}
+                  >
+                    {regSaving ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Creating Account...
+                      </span>
+                    ) : 'Create Account'}
                   </Button>
                 </div>
               </form>

@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # --- OpenAI ---
     OPENAI_API_KEY: str = ""
 
+    # --- Gemini ---
+    GEMINI_API_KEY: str = ""
+
     # --- Twilio ---
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""

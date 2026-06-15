@@ -62,7 +62,7 @@ class Appointment(UUIDMixin, TimestampMixin, Base):
         ForeignKey("departments.id", ondelete="CASCADE"),
         nullable=False,
     )
-    appointment_date: Mapped[date] = mapped_column(Date, nullable=False)
+    appointment_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
     status: Mapped[AppointmentStatus] = mapped_column(

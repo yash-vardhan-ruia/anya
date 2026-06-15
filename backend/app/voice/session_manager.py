@@ -59,6 +59,7 @@ class VoiceSessionManager:
                 "patient_id": None,
                 "patient_name": None,
                 "phone": None,
+                "age": None,
                 "symptoms": None,
                 "department_id": None,
                 "department_name": None,
@@ -69,6 +70,9 @@ class VoiceSessionManager:
                 "slot_date_str": None,
                 "invoice_id": None,
                 "is_emergency": False,
+                "chat_history": [],
+                "available_doctors": [],
+                "available_slots": [],
                 "created_at": str(datetime.datetime.now()),
             }
 
@@ -85,6 +89,11 @@ class VoiceSessionManager:
             logger.info("Cleared voice session from Redis", call_sid=call_sid)
         except Exception as e:
             logger.error("Failed to clear voice session from Redis", error=str(e), call_sid=call_sid)
+
+    @classmethod
+    async def delete_session(cls, call_sid: str) -> None:
+        """Delete/clear the voice session from Redis (alias for clear_session)."""
+        await cls.clear_session(call_sid)
 
 
 

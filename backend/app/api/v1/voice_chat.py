@@ -2,26 +2,33 @@ import re
 import uuid
 import time
 import httpx
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+import datetime
+import structlog
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
 
 from app.voice.session_manager import VoiceSessionManager
 from app.voice.orchestrator import VoiceOrchestrator
 from app.voice.prompts import get_state_prompt
 from app.voice.tool_executor import execute_tool
+from app.config import settings
 from app.integrations.razorpay_client import razorpay_client
+from app.core.security import get_current_admin
+from app.models.admin_user import AdminUser
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # Replace with your actual Gemini API key
+GEMINI_API_KEY = settings.GEMINI_API_KEY
 
 GEMINI_MODEL = "gemini-2.5-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 
 class VoiceChatRequest(BaseModel):
-    session_id: str | None = None
-    message: str
+    session_id: str | None = Field(None, max_length=100)
+    message: str = Field(..., min_length=1, max_length=2000)
 
 
 class VoiceChatResponse(BaseModel):
@@ -145,9 +152,10 @@ async def call_gemini(prompt: str) -> str:
         )
 
     if response.status_code != 200:
+        logger.error("Gemini API call failed", status_code=response.status_code, response_text=response.text)
         raise HTTPException(
             status_code=500,
-            detail=f"Gemini error: {response.text}",
+            detail="Internal AI service error. Please try again.",
         )
 
     data = response.json()
@@ -158,10 +166,30 @@ async def call_gemini(prompt: str) -> str:
         return "Sorry, I could not understand that. Could you please say it again?"
 
 
+@router.get("/session/{session_id}")
+async def get_voice_session(
+    session_id: str,
+    current_admin: AdminUser = Depends(get_current_admin)
+):
+    session = await VoiceSessionManager.get_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail="Active voice session not found",
+        )
+    return session
+
+
 @router.post("/message", response_model=VoiceChatResponse)
 async def voice_chat_message(payload: VoiceChatRequest):
     session_id = payload.session_id or f"web-{uuid.uuid4()}"
     user_message = payload.message.strip()
+
+    if not user_message:
+        raise HTTPException(
+            status_code=422,
+            detail="Message cannot be empty",
+        )
 
     patient_updates = extract_patient_updates(user_message)
 
@@ -171,10 +199,9 @@ async def voice_chat_message(payload: VoiceChatRequest):
             patient_updates,
         )
 
-    updated_session = await VoiceSessionManager.update_session(
-        session_id,
-        {},
-    )
+    updated_session = await VoiceSessionManager.get_session(session_id)
+    if not updated_session:
+        updated_session = await VoiceSessionManager.update_session(session_id, {})
 
     updated_session = await VoiceOrchestrator.process_conversational_step(
         call_sid=session_id,
@@ -201,7 +228,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
         "joint", "child", "baby", "stomach"
     ]
 
-    if any(word in user_message.lower() for word in symptom_keywords):
+    if state in ("greeting", "identity", "symptoms") and any(word in user_message.lower() for word in symptom_keywords):
         department_name = detect_department_from_text(user_message)
 
         doctors_result = await execute_tool(
@@ -273,7 +300,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
             )
 
         selected_doctor = available_doctors[selected_index]
-        target_date = "2026-06-15"
+        target_date = datetime.date.today().isoformat()
 
         slots_result = await execute_tool(
             "get_slots",
@@ -364,7 +391,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
             {
                 "slot_id": selected_slot["slot_id"],
                 "slot_time_str": selected_slot["start_time"],
-                "slot_date_str": "2026-06-15",
+                "slot_date_str": datetime.date.today().isoformat(),
                 "current_state": "review",
             },
         )
@@ -379,7 +406,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
         department_name = session.get("department_name", "General Medicine")
         doctor_name = session.get("doctor_name", "the selected doctor")
         slot_time = session.get("slot_time_str", selected_slot["start_time"])
-        slot_date = session.get("slot_date_str", "2026-06-15")
+        slot_date = session.get("slot_date_str", datetime.date.today().isoformat())
 
         reply = (
             f"Your slot is temporarily locked. Please review the details: "
@@ -426,12 +453,23 @@ async def voice_chat_message(payload: VoiceChatRequest):
             )
 
         available_doctors = session.get("available_doctors", [])
+        doctor_id = session.get("doctor_id")
         
-
-        if available_doctors:
+        # Default fee is ₹500
+        fee_inr = 500
+        if available_doctors and doctor_id:
+            # Look up the fee for the selected doctor
+            for doc in available_doctors:
+                if doc.get("doctor_id") == doctor_id:
+                    fee_inr = doc.get("consultation_fee_inr", 500)
+                    break
+            else:
+                fee_inr = available_doctors[0].get("consultation_fee_inr", 500)
+        elif available_doctors:
             fee_inr = available_doctors[0].get("consultation_fee_inr", 500)
-            gst_rate = 18
-            amount_paise = int(round(fee_inr * 100 * (1 + gst_rate / 100))) 
+
+        gst_rate = 18
+        amount_paise = int(round(fee_inr * 100 * (1 + gst_rate / 100))) 
 
         expire_by = int(time.time()) + (20 * 60)
 
@@ -469,7 +507,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
             session_id=session_id,
             reply=(
                 f"Payment link generated successfully. "
-                f"Amount is INR 590. "
+                f"Amount is INR {amount_paise / 100:.2f}. "
                 f"A payment link has been sent to {phone}. "
                 f"Link: {payment_link.get('short_url')}"
             ),

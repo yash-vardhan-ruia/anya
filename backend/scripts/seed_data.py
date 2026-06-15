@@ -39,10 +39,19 @@ async def seed() -> None:
         try:
             logger.info("Starting database seeding...")
 
-            # Migrate existing user accounts to 'admin' role
-            await session.execute(text("UPDATE admin_users SET role = 'admin' WHERE role != 'admin'"))
+            # Ensure status column exists on invoices table
+            try:
+                await session.execute(text("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending' NOT NULL"))
+                await session.commit()
+                logger.info("Ensured status column exists on invoices table.")
+            except Exception as e:
+                await session.rollback()
+                logger.warning("Could not automatically alter invoices table", error=str(e))
+
+            # Migrate existing user accounts to 'admin' or preserve 'super_admin'
+            await session.execute(text("UPDATE admin_users SET role = 'admin' WHERE role NOT IN ('admin', 'super_admin')"))
             await session.commit()
-            logger.info("Migrated any existing admin user roles to 'admin'")
+            logger.info("Migrated existing admin user roles to 'admin'")
 
             # 1. Seed default admin if none exists
             admin_stmt = select(AdminUser).where(AdminUser.email == "admin@carevoice.ai")
@@ -52,13 +61,14 @@ async def seed() -> None:
                     email="admin@carevoice.ai",
                     hashed_password=hash_password("password123"),
                     full_name="Hospital Director",
-                    role=AdminRole.ADMIN,
+                    role=AdminRole.SUPER_ADMIN,
                     is_active=True,
                 )
                 session.add(default_admin)
-                logger.info("Seeded default Admin user (admin@carevoice.ai / password123)")
+                logger.info("Seeded default Admin user (admin@carevoice.ai / password123) with SUPER_ADMIN role")
             else:
-                logger.info("Admin user admin@carevoice.ai already exists, skipping...")
+                existing_admin.role = AdminRole.SUPER_ADMIN
+                logger.info("Admin user admin@carevoice.ai updated/ensured to SUPER_ADMIN role")
 
             await session.commit()
             logger.info("Database seeding successfully completed!")

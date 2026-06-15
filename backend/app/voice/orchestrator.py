@@ -5,8 +5,13 @@ Manages the Finite State Machine (FSM) representing the sequential stages of the
 conversation. Handles transitions dynamically based on conversational milestones and tool call events.
 """
 
+import uuid
 import structlog
-from app.core.constants import ConversationState
+from sqlalchemy import select
+from app.core.constants import ConversationState, EmergencySeverity
+from app.database import async_session_factory
+from app.models.emergency_incident import EmergencyIncident
+from app.models.call_session import CallSession
 from app.voice.session_manager import VoiceSessionManager
 from app.voice.emergency import is_emergency
 
@@ -45,6 +50,44 @@ class VoiceOrchestrator:
         # 2. Check for emergencies deterministically
         if user_transcript and is_emergency(user_transcript):
             logger.warning("EMERGENCY FLAGGED - Escalating caller session", call_sid=call_sid, input=user_transcript)
+            
+            # Create emergency incident in database
+            patient_id = None
+            if session.get("patient_id"):
+                try:
+                    patient_id = uuid.UUID(session["patient_id"])
+                except Exception:
+                    pass
+
+            caller_phone = session.get("phone", "Unknown")
+            cleaned_trans = user_transcript.lower()
+            
+            detected_keywords = []
+            for kw in ["chest pain", "stroke", "seizure", "unconscious", "breathing", "emergency", "accident", "bleeding"]:
+                if kw in cleaned_trans:
+                    detected_keywords.append(kw)
+            keywords_detected = ", ".join(detected_keywords) if detected_keywords else "General Emergency"
+
+            async with async_session_factory() as db:
+                try:
+                    stmt = select(CallSession).where(CallSession.twilio_call_sid == call_sid)
+                    res = await db.execute(stmt)
+                    call_session = res.scalar_one_or_none()
+                    
+                    incident = EmergencyIncident(
+                        call_session_id=call_session.id if call_session else None,
+                        patient_id=patient_id,
+                        severity=EmergencySeverity.CRITICAL if ("chest pain" in cleaned_trans or "stroke" in cleaned_trans) else EmergencySeverity.HIGH,
+                        keywords_detected=keywords_detected,
+                        caller_phone=caller_phone,
+                        description=f"Automated AI detection from transcript: {user_transcript}"
+                    )
+                    db.add(incident)
+                    await db.commit()
+                    logger.info("Persisted emergency incident to DB", call_sid=call_sid, incident_id=str(incident.id))
+                except Exception as e:
+                    logger.error("Failed to persist emergency incident to database", error=str(e), call_sid=call_sid)
+
             session = await VoiceSessionManager.update_session(call_sid, {
                 "is_emergency": True,
                 "current_state": ConversationState.COMPLETE.value  # Exit normal flow
@@ -64,8 +107,8 @@ class VoiceOrchestrator:
             cleaned = user_transcript.lower().strip()
             
             if current_state == ConversationState.GREETING.value:
-                # If name is provided, move to Identity
-                if len(cleaned.split()) >= 1:
+                # Require at least 2 words to transition to Identity (avoids "hi" or "hello" overrides)
+                if len(cleaned.split()) >= 2:
                     next_state = ConversationState.IDENTITY.value
             
             elif current_state == ConversationState.IDENTITY.value:

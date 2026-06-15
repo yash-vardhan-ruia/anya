@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import AdminRole
 from app.core.exceptions import NotFoundError
 from app.core.security import RoleChecker, get_current_admin
 from app.database import get_db
@@ -19,8 +20,8 @@ from app.schemas.auth import AdminResponse
 
 router = APIRouter()
 
-require_super_admin = Depends(RoleChecker(allowed_roles=["admin"]))
-require_admin = Depends(RoleChecker(allowed_roles=["admin"]))
+require_super_admin = Depends(RoleChecker(allowed_roles=[AdminRole.SUPER_ADMIN]))
+require_admin = Depends(RoleChecker(allowed_roles=[AdminRole.SUPER_ADMIN, AdminRole.ADMIN]))
 
 
 @router.get(
@@ -51,11 +52,17 @@ async def list_admin_users(
 )
 async def update_admin_role(
     user_id: UUID,
-    role: str = Query(..., description="New role to assign"),
+    role: AdminRole = Query(..., description="New role to assign"),
     db: AsyncSession = Depends(get_db),
     current_admin: AdminUser = Depends(get_current_admin),
 ) -> AdminResponse:
     """Update an admin user's role. Requires SUPER_ADMIN role."""
+    if user_id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admins cannot modify their own roles",
+        )
+
     result = await db.execute(
         select(AdminUser).where(AdminUser.id == user_id)
     )
@@ -82,6 +89,12 @@ async def deactivate_admin(
     current_admin: AdminUser = Depends(get_current_admin),
 ) -> AdminResponse:
     """Deactivate an admin user account. Requires SUPER_ADMIN role."""
+    if user_id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admins cannot deactivate their own accounts",
+        )
+
     result = await db.execute(
         select(AdminUser).where(AdminUser.id == user_id)
     )
@@ -128,8 +141,8 @@ async def list_audit_logs(
                 "id": str(log.id),
                 "admin_id": str(log.admin_id) if log.admin_id else None,
                 "action": log.action,
-                "resource_type": log.resource_type,
-                "resource_id": str(log.resource_id) if log.resource_id else None,
+                "resource_type": log.entity_type,
+                "resource_id": str(log.entity_id) if log.entity_id else None,
                 "details": log.details,
                 "ip_address": log.ip_address,
                 "created_at": log.created_at.isoformat() if log.created_at else None,

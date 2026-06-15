@@ -55,10 +55,11 @@ class Invoice(UUIDMixin, TimestampMixin, Base):
         unique=True,
         nullable=False,
     )
-    subtotal: Mapped[int] = mapped_column(Integer, nullable=False)
+    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
     gst_rate: Mapped[float] = mapped_column(Float, nullable=False)
-    gst_amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    total_amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    gst_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    total_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
 
     # --- Relationships ---
     appointment: Mapped["Appointment"] = relationship(
@@ -94,11 +95,7 @@ class Invoice(UUIDMixin, TimestampMixin, Base):
     def department_name(self) -> str | None:
         return self.appointment.department.name if (self.appointment and self.appointment.department) else None
 
-    @property
-    def status(self) -> str:
-        if self.payment:
-            return "paid" if self.payment.status == "captured" else "pending"
-        return "pending"
+
 
 
 

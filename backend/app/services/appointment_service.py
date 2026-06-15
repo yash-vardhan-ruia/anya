@@ -44,8 +44,24 @@ class AppointmentService:
         if not slot:
             raise ValueError("Doctor slot not found.")
 
+        if slot.doctor_id != schema.doctor_id:
+            raise ValueError("Doctor ID mismatch for the selected slot.")
+
         if slot.status == SlotStatus.BOOKED:
             raise ValueError("This time slot has already been booked.")
+
+        # Check patient double-booking for the same date and time
+        overlap_stmt = select(func.count(Appointment.id)).where(
+            and_(
+                Appointment.patient_id == schema.patient_id,
+                Appointment.appointment_date == schema.appointment_date,
+                Appointment.start_time == schema.start_time,
+                Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
+            )
+        )
+        overlap_count = (await db.execute(overlap_stmt)).scalar_one() or 0
+        if overlap_count > 0:
+            raise ValueError("Patient already has an appointment scheduled at this time.")
 
         # If locked_by_session is provided, confirm the lock is held by the same caller session
         now_tz = datetime.datetime.now(datetime.timezone.utc)
@@ -205,16 +221,7 @@ class AppointmentService:
             stmt = stmt.where(Appointment.status == status)
 
         # Count query
-        count_stmt = select(func.count(Appointment.id))
-        if patient_id:
-            count_stmt = count_stmt.where(Appointment.patient_id == patient_id)
-        if doctor_id:
-            count_stmt = count_stmt.where(Appointment.doctor_id == doctor_id)
-        if date_filter:
-            count_stmt = count_stmt.where(Appointment.appointment_date == date_filter)
-        if status:
-            count_stmt = count_stmt.where(Appointment.status == status)
-
+        count_stmt = select(func.count()).select_from(stmt.subquery())
         total_result = await db.execute(count_stmt)
         total = total_result.scalar_one()
 

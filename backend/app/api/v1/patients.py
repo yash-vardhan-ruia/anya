@@ -64,6 +64,11 @@ async def create_patient(
     try:
         return await PatientService.create_patient(db=db, schema=payload)
     except ValueError as e:
+        if str(e) == "Phone number already registered":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(e),
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

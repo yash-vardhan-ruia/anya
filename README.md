@@ -12,8 +12,8 @@ Patient Phone Call
 Twilio Voice Gateway (PSTN → WebSocket)
        ↓
 FastAPI Voice Server (Media Stream Handler)
-       ↓  ← G.711 μ-law bidirectional audio →
-OpenAI Realtime API (GPT-4o Speech-to-Speech)
+       ↓  ← G.711 μ-law bidirectional audio (resampled to 16kHz/24kHz PCM) →
+Gemini Multimodal Live API (gemini-2.0-flash-exp Speech-to-Speech)
        ↓
 Conversation Orchestrator (Finite State Machine)
        ↓
@@ -34,7 +34,7 @@ Celery Workers → Notifications (WhatsApp, SMS, Email)
 | **Database** | PostgreSQL 15, Redis 7 |
 | **Task Queue** | Celery 5 (worker + beat scheduler) |
 | **Frontend** | Next.js 16, TypeScript, Tailwind CSS, ShadCN UI, Zustand |
-| **AI Voice** | OpenAI Realtime API, Twilio Voice + Media Streams |
+| **AI Voice** | Gemini Multimodal Live API, Twilio Voice + Media Streams |
 | **Payments** | Razorpay (UPI, Payment Links, Webhooks) |
 | **Notifications** | WhatsApp, SMS, Email via Twilio / SMTP |
 | **Monitoring** | Prometheus v2.53, Grafana 11.2 |
@@ -177,7 +177,7 @@ Copy `.env.example` to `.env` and configure the following:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `JWT_SECRET_KEY` | ✅ | Secret key for JWT signing (min 32 chars) |
-| `OPENAI_API_KEY` | ✅ | OpenAI API key (for AI voice agent) |
+| `GEMINI_API_KEY` | ✅ | Gemini API key (for AI voice agent) |
 | `TWILIO_ACCOUNT_SID` | ✅ | Twilio account SID (for voice calls) |
 | `TWILIO_AUTH_TOKEN` | ✅ | Twilio auth token |
 | `TWILIO_PHONE_NUMBER` | ✅ | Twilio phone number (E.164 format) |
@@ -230,7 +230,7 @@ carevoice/
 
 ### 🎙️ AI Voice Agent
 - Answers incoming patient calls via Twilio
-- Conversational appointment booking through OpenAI Realtime API (GPT-4o)
+- Conversational appointment booking through Gemini Multimodal Live API (gemini-2.0-flash-exp)
 - Emergency detection (chest pain, stroke, seizures, etc.)
 - Automatic department and doctor recommendation
 - Payment link generation during the call

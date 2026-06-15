@@ -1,5 +1,5 @@
 """
-CareVoice AI Hospital Platform - OpenAI Realtime API Tools.
+CareVoice AI Hospital Platform - Gemini Live API Tools.
 
 Defines the JSON schemas for the tools/functions that Anya can execute in real-time.
 """

@@ -49,6 +49,7 @@ class CallStatus(str, Enum):
 class AdminRole(str, Enum):
     """Role-based access levels for admin users."""
 
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
 
 

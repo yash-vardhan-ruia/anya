@@ -10,12 +10,11 @@ import structlog
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
-from app.core.constants import PaymentStatus
+from app.core.constants import PaymentStatus, ConversationState
 from app.models.payment import Payment
 from app.models.invoice import Invoice
 from app.integrations.razorpay_client import razorpay_client
 from app.services.appointment_service import AppointmentService
-from app.core.constants import PaymentStatus, ConversationState
 from app.models.slot import DoctorSlot
 from app.schemas.appointment import AppointmentCreate
 from app.services.patient_service import PatientService
@@ -64,7 +63,7 @@ class PaymentService:
 
         # Call Razorpay client to create an order
         razorpay_order = razorpay_client.create_order(
-            amount_paise=invoice.total_amount,
+            amount_paise=int(round(invoice.total_amount * 100)),
             receipt_id=str(invoice.id)
         )
         
@@ -80,7 +79,7 @@ class PaymentService:
             payment_record = Payment(
                 invoice_id=invoice_id,
                 patient_id=invoice.patient_id,
-                amount=invoice.total_amount,
+                amount=int(round(invoice.total_amount * 100)),
                 razorpay_order_id=order_id,
                 status=PaymentStatus.CREATED,
             )
@@ -92,7 +91,7 @@ class PaymentService:
         return payment_record
 
     @classmethod
-    async def verify_payment(
+    async def verify_payment_signature(
         cls,
         db: AsyncSession,
         razorpay_order_id: str,
@@ -125,6 +124,7 @@ class PaymentService:
             # 2. Confirm the corresponding appointment
             invoice = payment.invoice
             if invoice:
+                invoice.status = "paid"
                 await AppointmentService.confirm_appointment(db, invoice.appointment_id)
                 logger.info("Payment verified. Confirming appointment.", appointment_id=str(invoice.appointment_id))
             
@@ -138,14 +138,15 @@ class PaymentService:
             logger.warning("Payment signature verification failed", payment_id=str(payment.id), order_id=razorpay_order_id)
             return False
 
-        @classmethod
-        async def handle_webhook_event(cls, db: AsyncSession, event: dict) -> None:
-            """Handle Razorpay webhook events.
+    @classmethod
+    async def handle_webhook_event(cls, db: AsyncSession, event: dict) -> None:
+        """Handle Razorpay webhook events.
 
-            New payment-link flow:
-            payment_link.paid -> read Redis booking session -> create patient,
-            appointment, invoice, payment record -> clear Redis.
-            """
+        New payment-link flow:
+        payment_link.paid -> read Redis booking session -> create patient,
+        appointment, invoice, payment record -> clear Redis.
+        """
+        try:
             event_type = event.get("event")
 
             if event_type == "payment_link.paid":
@@ -241,7 +242,7 @@ class PaymentService:
                         payment_record = Payment(
                             invoice_id=invoice.id,
                             patient_id=patient.id,
-                            amount=amount or invoice.total_amount,
+                            amount=amount or int(round(invoice.total_amount * 100)),
                             razorpay_order_id=payment_link_id,
                             razorpay_payment_id=razorpay_payment_id,
                             status=PaymentStatus.CAPTURED,
@@ -252,6 +253,7 @@ class PaymentService:
                         existing_payment.razorpay_order_id = payment_link_id
                         existing_payment.razorpay_payment_id = razorpay_payment_id
 
+                    invoice.status = "paid"
                     await db.commit()
 
                 await VoiceSessionManager.update_session(
@@ -294,6 +296,7 @@ class PaymentService:
 
                         invoice = payment.invoice
                         if invoice:
+                            invoice.status = "paid"
                             await AppointmentService.confirm_appointment(db, invoice.appointment_id)
                             logger.info("Webhook updated appointment to CONFIRMED", appointment_id=str(invoice.appointment_id))
 
@@ -302,6 +305,10 @@ class PaymentService:
                 return
 
             logger.info("Skipping webhook event type", event_type=event_type)
+        except Exception as e:
+            await db.rollback()
+            logger.error("Exception in webhook handler, transaction rolled back", error=str(e))
+            raise
 
         
 
@@ -313,15 +320,20 @@ class PaymentService:
         skip: int = 0,
         limit: int = 100,
         status: PaymentStatus | None = None,
+        patient_id: uuid.UUID | None = None,
     ) -> tuple[int, list[Payment]]:
         """List payment transactions with optional filters."""
         stmt = select(Payment)
         if status:
             stmt = stmt.where(Payment.status == status)
+        if patient_id:
+            stmt = stmt.where(Payment.patient_id == patient_id)
 
         count_stmt = select(func.count(Payment.id))
         if status:
             count_stmt = count_stmt.where(Payment.status == status)
+        if patient_id:
+            count_stmt = count_stmt.where(Payment.patient_id == patient_id)
 
         total_result = await db.execute(count_stmt)
         total = total_result.scalar_one()

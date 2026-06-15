@@ -8,7 +8,6 @@ and financial revenue charts to power the administrator reporting dashboard.
 import datetime
 import uuid
 import structlog
-import random
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +53,22 @@ logger = structlog.get_logger(__name__)
 
 class AnalyticsService:
     """Business logic for aggregate dashboard reporting and operational insights."""
+
+    @staticmethod
+    def _calculate_csat_score(transcripts: list[str]) -> float:
+        """Helper to compute aggregate CSAT satisfaction score from transcripts."""
+        if not transcripts:
+            return 0.0
+        scores = []
+        for transcript in transcripts:
+            t_lower = transcript.lower()
+            if "thank" in t_lower or "great" in t_lower or "perfect" in t_lower:
+                scores.append(5.0)
+            elif any(x in t_lower for x in ["worry", "pain", "fever", "hurt", "bad"]):
+                scores.append(3.0)
+            else:
+                scores.append(4.0)
+        return round(sum(scores) / len(scores), 1)
 
     @classmethod
     async def get_analytics(cls, db: AsyncSession) -> AnalyticsResponse:
@@ -232,34 +247,10 @@ class AnalyticsService:
 
         # CSAT (Satisfaction Score) & Delta calculated dynamically from call session transcripts
         sessions_with_transcripts = (await db.execute(select(CallSession.transcript).where(CallSession.transcript != None))).scalars().all()
-        if sessions_with_transcripts:
-            scores = []
-            for transcript in sessions_with_transcripts:
-                t_lower = transcript.lower()
-                if "thank" in t_lower or "great" in t_lower or "perfect" in t_lower:
-                    scores.append(5.0)
-                elif any(x in t_lower for x in ["worry", "pain", "fever", "hurt", "bad"]):
-                    scores.append(3.0)
-                else:
-                    scores.append(4.0)
-            avg_csat = round(sum(scores) / len(scores), 1)
-        else:
-            avg_csat = 0.0
+        avg_csat = cls._calculate_csat_score(sessions_with_transcripts)
 
         yesterday_sessions = (await db.execute(select(CallSession.transcript).where(and_(CallSession.transcript != None, CallSession.created_at >= yesterday_start, CallSession.created_at < today_start)))).scalars().all()
-        if yesterday_sessions:
-            y_scores = []
-            for transcript in yesterday_sessions:
-                t_lower = transcript.lower()
-                if "thank" in t_lower or "great" in t_lower or "perfect" in t_lower:
-                    y_scores.append(5.0)
-                elif any(x in t_lower for x in ["worry", "pain", "fever", "hurt", "bad"]):
-                    y_scores.append(3.0)
-                else:
-                    y_scores.append(4.0)
-            yesterday_csat = sum(y_scores) / len(y_scores)
-        else:
-            yesterday_csat = 0.0
+        yesterday_csat = cls._calculate_csat_score(yesterday_sessions)
         csat_delta = round((avg_csat - yesterday_csat) * 100.0 / yesterday_csat, 1) if yesterday_csat > 0 else 0.0
 
         # Patients Delta
@@ -314,8 +305,8 @@ class AnalyticsService:
         twilio_status = "operational" if settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN else "degraded"
         health.append(SystemHealthItem(name="Twilio Telecom SIP Trunk", status=twilio_status, uptime=99.95, responseTime=118.0))
 
-        openai_status = "operational" if settings.OPENAI_API_KEY else "degraded"
-        health.append(SystemHealthItem(name="OpenAI Realtime API Gateway", status=openai_status, uptime=99.85, responseTime=242.0))
+        gemini_status = "operational" if settings.GEMINI_API_KEY else "degraded"
+        health.append(SystemHealthItem(name="Gemini Live API Gateway", status=gemini_status, uptime=99.85, responseTime=242.0))
 
         return health
 
@@ -463,16 +454,28 @@ class AnalyticsService:
             TypeAppointmentCount(type="Consultations", count=total_scheduled)
         ]
 
-        # Appointment 7-day trend
+        # Appointment 7-day trend (one query)
         trend_list = []
         try:
+            start_date = datetime.date.today() - datetime.timedelta(days=6)
+            trend_stmt = select(
+                Appointment.appointment_date,
+                func.count(Appointment.id)
+            ).where(
+                Appointment.appointment_date >= start_date
+            ).group_by(
+                Appointment.appointment_date
+            )
+            trend_res = await db.execute(trend_stmt)
+            trend_map = {row[0]: row[1] for row in trend_res.all()}
+            
             for i in range(6, -1, -1):
                 d = datetime.date.today() - datetime.timedelta(days=i)
                 date_str = d.strftime("%m/%d")
-                count_stmt = select(func.count(Appointment.id)).where(Appointment.appointment_date == d)
-                day_count = (await db.execute(count_stmt)).scalar_one() or 0
+                day_count = trend_map.get(d, 0)
                 trend_list.append(DateAppointmentCount(date=date_str, count=day_count))
-        except Exception:
+        except Exception as trend_err:
+            logger.error("Error generating appointment 7-day trend", error=str(trend_err))
             trend_list = []
 
         appointment_metrics = AppointmentMetrics(
@@ -499,7 +502,7 @@ class AnalyticsService:
             and_(Invoice.status != "paid", Invoice.status != "cancelled", Invoice.status != "refunded")
         )
         outstanding_paise = (await db.execute(outstanding_stmt)).scalar_one() or 0
-        outstanding_amount = float(outstanding_paise) / 100.0
+        outstanding_amount = float(outstanding_paise)
 
         # Collection Rate
         collection_rate = (total_revenue / (total_revenue + outstanding_amount) * 100.0) if (total_revenue + outstanding_amount) > 0 else 100.0
@@ -514,39 +517,38 @@ class AnalyticsService:
             Invoice, Invoice.appointment_id == Appointment.id
         ).where(Invoice.status == "paid").group_by(Department.name)
         dept_revenue_res = (await db.execute(dept_revenue_stmt)).all()
-        dept_revenue = [DeptRevenueAmount(department=row[0], amount=float(row[1]) / 100.0) for row in dept_revenue_res]
+        dept_revenue = [DeptRevenueAmount(department=row[0], amount=float(row[1])) for row in dept_revenue_res]
 
-        # Revenue 7-day trend
+        # Revenue 7-day trend (one query)
         rev_trend_list = []
         try:
+            start_date = datetime.date.today() - datetime.timedelta(days=6)
+            rev_trend_stmt = select(
+                func.cast(Payment.created_at, datetime.date),
+                func.sum(Payment.amount)
+            ).where(
+                and_(
+                    Payment.status == PaymentStatus.CAPTURED,
+                    func.cast(Payment.created_at, datetime.date) >= start_date
+                )
+            ).group_by(
+                func.cast(Payment.created_at, datetime.date)
+            )
+            rev_trend_res = await db.execute(rev_trend_stmt)
+            rev_trend_map = {row[0]: row[1] for row in rev_trend_res.all()}
+            
             for i in range(6, -1, -1):
                 d = datetime.date.today() - datetime.timedelta(days=i)
                 date_str = d.strftime("%m/%d")
-                day_rev_stmt = select(func.sum(Payment.amount)).where(
-                    and_(Payment.status == PaymentStatus.CAPTURED, func.cast(Payment.created_at, datetime.date) == d)
-                )
-                day_rev_paise = (await db.execute(day_rev_stmt)).scalar_one() or 0
+                day_rev_paise = rev_trend_map.get(d, 0)
                 rev_trend_list.append(DateRevenueAmount(date=date_str, amount=float(day_rev_paise) / 100.0))
-        except Exception:
+        except Exception as rev_err:
+            logger.error("Error generating revenue 7-day trend", error=str(rev_err))
             rev_trend_list = []
 
         # Revenue by payment method
-        by_method_stmt = select(
-            Invoice.payment_method,
-            func.coalesce(func.sum(Invoice.total_amount), 0)
-        ).where(Invoice.status == "paid").group_by(Invoice.payment_method)
-        by_method_res = (await db.execute(by_method_stmt)).all()
-        
-        pretty_method_mapping = {
-            "cash": "Cash Payments",
-            "card": "Credit / Debit Card",
-            "insurance": "Insurance Claim",
-            "upi": "UPI / Direct Bank",
-            "bank-transfer": "UPI / Direct Bank"
-        }
         by_method = [
-            MethodRevenueAmount(method=pretty_method_mapping.get(row[0], "UPI / Direct Bank" if not row[0] else row[0]), amount=float(row[1]) / 100.0)
-            for row in by_method_res
+            MethodRevenueAmount(method="UPI / Direct Bank", amount=round(total_revenue, 2))
         ]
 
         revenue_metrics = RevenueMetrics(
@@ -571,19 +573,7 @@ class AnalyticsService:
 
         # CSAT calculated dynamically from transcripts
         sessions_with_transcripts = (await db.execute(select(CallSession.transcript).where(CallSession.transcript != None))).scalars().all()
-        if sessions_with_transcripts:
-            scores = []
-            for transcript in sessions_with_transcripts:
-                t_lower = transcript.lower()
-                if "thank" in t_lower or "great" in t_lower or "perfect" in t_lower:
-                    scores.append(5.0)
-                elif any(x in t_lower for x in ["worry", "pain", "fever", "hurt", "bad"]):
-                    scores.append(3.0)
-                else:
-                    scores.append(4.0)
-            satisfaction_score = round(sum(scores) / len(scores), 1)
-        else:
-            satisfaction_score = 0.0
+        satisfaction_score = cls._calculate_csat_score(sessions_with_transcripts)
 
         intent_distribution = []
         try:
@@ -611,19 +601,33 @@ class AnalyticsService:
         except Exception:
             intent_distribution = []
 
+        # Sentiment trend 7-day (one query)
         sentiment_trend = []
         try:
+            start_date = datetime.date.today() - datetime.timedelta(days=6)
+            sessions_stmt = select(CallSession).where(
+                and_(
+                    CallSession.started_at != None,
+                    func.cast(CallSession.started_at, datetime.date) >= start_date
+                )
+            )
+            sessions_res = (await db.execute(sessions_stmt)).scalars().all()
+            
+            # Group sessions by date in Python
+            from collections import defaultdict
+            sessions_by_date = defaultdict(list)
+            for sess in sessions_res:
+                s_date = sess.started_at.date() if sess.started_at else None
+                if s_date:
+                    sessions_by_date[s_date].append(sess)
+            
             for i in range(6, -1, -1):
                 d = datetime.date.today() - datetime.timedelta(days=i)
                 date_str = d.strftime("%m/%d")
                 
-                sessions_stmt = select(CallSession).where(
-                    and_(CallSession.started_at != None, func.cast(CallSession.started_at, datetime.date) == d)
-                )
-                sessions_res = (await db.execute(sessions_stmt)).scalars().all()
-                
+                day_sessions = sessions_by_date.get(d, [])
                 pos, neu, neg = 0, 0, 0
-                for sess in sessions_res:
+                for sess in day_sessions:
                     transcript_lower = (sess.transcript or "").lower()
                     if "thank" in transcript_lower or "great" in transcript_lower or "perfect" in transcript_lower:
                         pos += 1
@@ -632,7 +636,8 @@ class AnalyticsService:
                     else:
                         neu += 1
                 sentiment_trend.append(SentimentTrendItem(date=date_str, positive=pos, neutral=neu, negative=neg))
-        except Exception:
+        except Exception as sent_err:
+            logger.error("Error generating sentiment trend", error=str(sent_err))
             sentiment_trend = []
 
         ai_metrics = AIMetrics(
@@ -703,34 +708,38 @@ class AnalyticsService:
         utilization = []
         today = datetime.date.today()
         
+        # 1. Fetch count of today's appointments per doctor
+        appt_today_stmt = select(Appointment.doctor_id, func.count(Appointment.id)).where(
+            Appointment.appointment_date == today
+        ).group_by(Appointment.doctor_id)
+        appt_today_res = await db.execute(appt_today_stmt)
+        appts_today_map = {row[0]: row[1] for row in appt_today_res.all()}
+
+        # 2. Fetch total count of appointments per doctor
+        appt_total_stmt = select(Appointment.doctor_id, func.count(Appointment.id)).group_by(Appointment.doctor_id)
+        appt_total_res = await db.execute(appt_total_stmt)
+        appts_total_map = {row[0]: row[1] for row in appt_total_res.all()}
+
+        # 3. Fetch booked slots today per doctor
+        from app.models.slot import DoctorSlot
+        booked_slots_stmt = select(DoctorSlot.doctor_id, func.count(DoctorSlot.id)).where(
+            and_(DoctorSlot.date == today, DoctorSlot.status == "booked")
+        ).group_by(DoctorSlot.doctor_id)
+        booked_slots_res = await db.execute(booked_slots_stmt)
+        booked_slots_map = {row[0]: row[1] for row in booked_slots_res.all()}
+
+        # 4. Fetch total slots today per doctor
+        total_slots_stmt = select(DoctorSlot.doctor_id, func.count(DoctorSlot.id)).where(
+            DoctorSlot.date == today
+        ).group_by(DoctorSlot.doctor_id)
+        total_slots_res = await db.execute(total_slots_stmt)
+        total_slots_map = {row[0]: row[1] for row in total_slots_res.all()}
+
         for doc in doctors:
-            from app.models.slot import DoctorSlot
-            
-            appt_stmt = select(func.count(Appointment.id)).where(
-                and_(Appointment.doctor_id == doc.id, Appointment.appointment_date == today)
-            )
-            appt_count = (await db.execute(appt_stmt)).scalar_one() or 0
-            
-            total_stmt = select(func.count(Appointment.id)).where(Appointment.doctor_id == doc.id)
-            total_count = (await db.execute(total_stmt)).scalar_one() or 0
-            
-            # Count total and booked slots for today
-            slots_stmt = select(
-                func.count(DoctorSlot.id).label("total"),
-                func.count(func.nullif(DoctorSlot.status != "booked", True)).label("booked")  # count only status == "booked"
-            ).where(
-                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today)
-            )
-            # Alternatively, query booked and total count using separate or simple queries
-            booked_slots_stmt = select(func.count(DoctorSlot.id)).where(
-                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today, DoctorSlot.status == "booked")
-            )
-            total_slots_stmt = select(func.count(DoctorSlot.id)).where(
-                and_(DoctorSlot.doctor_id == doc.id, DoctorSlot.date == today)
-            )
-            
-            booked_slots_count = (await db.execute(booked_slots_stmt)).scalar_one() or 0
-            total_slots_count = (await db.execute(total_slots_stmt)).scalar_one() or 0
+            appt_count = appts_today_map.get(doc.id, 0)
+            total_count = appts_total_map.get(doc.id, 0)
+            booked_slots_count = booked_slots_map.get(doc.id, 0)
+            total_slots_count = total_slots_map.get(doc.id, 0)
             
             if total_slots_count > 0:
                 util_rate = (booked_slots_count * 100.0) / total_slots_count

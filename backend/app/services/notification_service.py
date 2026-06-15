@@ -172,7 +172,7 @@ class NotificationService:
         # Calculate consultation amount
         invoice_stmt = select(Invoice).where(Invoice.appointment_id == appointment_id)
         invoice = (await db.execute(invoice_stmt)).scalar_one_or_none()
-        amount_str = f"INR {invoice.total_amount / 100:.2f}" if invoice else f"INR {doctor.consultation_fee / 100:.2f}"
+        amount_str = f"INR {invoice.total_amount:.2f}" if invoice else f"INR {doctor.consultation_fee / 100:.2f}"
 
         # 1. SMS Dispatch
         sms_body = (

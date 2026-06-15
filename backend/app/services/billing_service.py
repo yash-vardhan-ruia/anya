@@ -6,11 +6,12 @@ and looking up detailed financial invoice summaries.
 """
 
 import datetime
-import random
+import secrets
 import uuid
 import structlog
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.models.invoice import Invoice
 from app.models.appointment import Appointment
@@ -25,7 +26,7 @@ class BillingService:
     def _generate_invoice_number() -> str:
         """Generate a unique billing invoice number."""
         today_str = datetime.date.today().strftime("%Y%m%d")
-        rand_suffix = "".join(str(random.randint(0, 9)) for _ in range(4))
+        rand_suffix = "".join(secrets.choice("0123456789") for _ in range(4))
         return f"INV-{today_str}-{rand_suffix}"
 
     @classmethod
@@ -53,24 +54,30 @@ class BillingService:
             return existing
 
         # Fetch appointment details (with doctor details preloaded)
-        appointment = await db.get(Appointment, appointment_id)
+        stmt = select(Appointment).options(selectinload(Appointment.doctor)).where(Appointment.id == appointment_id)
+        appointment = (await db.execute(stmt)).scalar_one_or_none()
         if not appointment:
             raise ValueError(f"Appointment {appointment_id} not found.")
 
-        # Subtotal is the doctor's consultation fee
-        subtotal = appointment.doctor.consultation_fee
+        # Subtotal is the doctor's consultation fee (converted from paise to INR Rupees)
+        subtotal = float(appointment.doctor.consultation_fee) / 100.0
         gst_rate = settings.GST_RATE
-        gst_amount = int(round(subtotal * (gst_rate / 100.0)))
-        total_amount = subtotal + gst_amount
+        gst_amount = round(subtotal * (gst_rate / 100.0), 2)
+        total_amount = round(subtotal + gst_amount, 2)
 
         # Generate unique invoice number
+        attempts = 0
+        max_attempts = 10
         invoice_num = cls._generate_invoice_number()
-        while True:
+        while attempts < max_attempts:
             stmt = select(Invoice).where(Invoice.invoice_number == invoice_num)
             dup = (await db.execute(stmt)).scalar_one_or_none()
             if not dup:
                 break
             invoice_num = cls._generate_invoice_number()
+            attempts += 1
+        else:
+            raise RuntimeError("Failed to generate a unique invoice number after 10 attempts.")
 
         invoice = Invoice(
             appointment_id=appointment_id,

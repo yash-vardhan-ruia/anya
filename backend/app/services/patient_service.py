@@ -5,10 +5,11 @@ Handles business logic for patient CRUD operations, including automated MRN gene
 and lookup/creation by phone number during voice calls.
 """
 
+import datetime
 import random
 import uuid
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientUpdate
@@ -23,7 +24,6 @@ class PatientService:
     def _generate_mrn() -> str:
         """Generate a unique Medical Record Number (MRN)."""
         # Format: MRN-YYYYMMDD-XXXX where X is a random digit
-        import datetime
         today_str = datetime.date.today().strftime("%Y%m%d")
         rand_digits = "".join(str(random.randint(0, 9)) for _ in range(4))
         return f"MRN-{today_str}-{rand_digits}"
@@ -79,6 +79,9 @@ class PatientService:
     @classmethod
     async def create_patient(cls, db: AsyncSession, schema: PatientCreate) -> Patient:
         """Create a new patient from the dashboard."""
+        existing = await cls.get_patient_by_phone(db, schema.phone)
+        if existing:
+            raise ValueError("Phone number already registered")
         mrn = cls._generate_mrn()
         new_patient = Patient(
             phone=schema.phone,
@@ -129,9 +132,6 @@ class PatientService:
             )
 
         # Count query
-        count_stmt = select(select(Patient).where(False).exists())  # placeholder helper
-        # A simpler way to count is using func.count:
-        from sqlalchemy import func
         if search_query:
             count_stmt = select(func.count(Patient.id)).where(
                 Patient.full_name.ilike(f"%{search_query}%")

@@ -16,8 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.constants import AdminRole
 from app.database import get_db
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# CryptContext is unused as bcrypt is used directly
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -191,5 +190,9 @@ class RoleChecker:
         self,
         current_admin=Depends(get_current_admin),
     ) -> None:
-        """Allow any authenticated admin user to proceed."""
-        pass
+        """Enforce role check on the current authenticated admin user."""
+        if current_admin.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have the required permissions to access this resource",
+            )
