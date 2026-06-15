@@ -12,17 +12,17 @@ from app.schemas.patient import PatientResponse
 
 class InvoiceBase(BaseModel):
     invoice_number: str
-    subtotal: int = Field(..., description="Amount in paise before GST")
+    subtotal: float = Field(..., description="Amount in Rupees before GST")
     gst_rate: float = Field(..., description="GST percentage (e.g. 18.0)")
-    gst_amount: int = Field(..., description="GST amount in paise")
-    total_amount: int = Field(..., description="Total amount in paise")
+    gst_amount: float = Field(..., description="GST amount in Rupees")
+    total_amount: float = Field(..., description="Total amount in Rupees")
 
 
 class InvoiceCreate(BaseModel):
     """Schema to create a new invoice."""
     appointment_id: uuid.UUID
     patient_id: uuid.UUID
-    subtotal: int
+    subtotal: float
     gst_rate: float = 18.0
 
 

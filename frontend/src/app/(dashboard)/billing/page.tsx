@@ -135,7 +135,6 @@ export default function BillingPage() {
                   <th className="px-5 py-3 font-semibold">Patient Name</th>
                   <th className="px-5 py-3 font-semibold">Attending Physician</th>
                   <th className="px-5 py-3 font-semibold">Consulting Dept</th>
-                  <th className="px-5 py-3 font-semibold">Payment Method</th>
                   <th className="px-5 py-3 font-semibold">Created / Due</th>
                   <th className="px-5 py-3 font-semibold">Gross Sum</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
@@ -159,9 +158,6 @@ export default function BillingPage() {
                       <td className="px-5 py-3.5 font-semibold text-slate-800">{inv.patientName}</td>
                       <td className="px-5 py-3.5 font-medium text-slate-700">{inv.doctorName}</td>
                       <td className="px-5 py-3.5 font-medium text-slate-700">{inv.department}</td>
-                      <td className="px-5 py-3.5 text-muted-foreground font-semibold uppercase">
-                        {inv.paymentMethod || 'EHR Invoiced'}
-                      </td>
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col text-[10px]">
                           <span>Created: {formatDate(inv.createdAt)}</span>

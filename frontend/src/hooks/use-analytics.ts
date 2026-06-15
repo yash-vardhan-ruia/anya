@@ -150,9 +150,9 @@ export function useAnalytics() {
         const res = await api.get('/billing/invoices');
         const rawItems = Array.isArray(res.data) ? res.data : (res.data.items || []);
         return rawItems.map((inv: any) => {
-          const subtotal = (inv.subtotal || 0) / 100;
-          const tax = (inv.gst_amount || inv.tax || 0) / 100;
-          const total = (inv.total_amount || inv.total || 0) / 100;
+          const subtotal = inv.subtotal || 0;
+          const tax = inv.gst_amount || inv.tax || 0;
+          const total = inv.total_amount || inv.total || 0;
           const discount = 0;
           
           const doctorName = inv.doctor_name || 'Attending Staff';
@@ -178,7 +178,6 @@ export function useAnalytics() {
             discount: discount,
             total: total,
             status: inv.status || 'pending',
-            paymentMethod: inv.payment?.payment_method || 'card',
             dueDate: new Date(new Date(inv.created_at || new Date()).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             createdAt: inv.created_at || new Date().toISOString(),
           };

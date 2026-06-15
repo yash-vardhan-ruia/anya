@@ -182,7 +182,6 @@ export interface Invoice {
   discount: number;
   total: number;
   status: 'draft' | 'pending' | 'paid' | 'overdue' | 'cancelled' | 'refunded';
-  paymentMethod?: 'cash' | 'card' | 'insurance' | 'upi' | 'bank-transfer';
   dueDate: string;
   paidAt?: string;
   createdAt: string;
