@@ -92,6 +92,7 @@ export function useDoctors() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['doctors'] });
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
     },
   });
 

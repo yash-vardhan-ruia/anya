@@ -309,3 +309,12 @@
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 70px;
 }
+
+/* ── Hide scrollbar utility ── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

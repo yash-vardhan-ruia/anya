@@ -20,6 +20,8 @@ export default function DoctorsPage() {
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [isAddDoctorOpen, setIsAddDoctorOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [doctorToDelete, setDoctorToDelete] = useState<string | null>(null);
   
   // Department list state
   const [departments, setDepartments] = useState<any[]>([]);
@@ -79,13 +81,20 @@ export default function DoctorsPage() {
     }
   };
 
-  const handleDeleteDoctor = async (id: string) => {
-    if (confirm('Are you sure you want to delete this doctor profile?')) {
-      try {
-        await deleteDoctor(id);
-      } catch (err) {
-        console.error('Error deleting doctor:', err);
-      }
+  const handleDeleteDoctor = (id: string) => {
+    setDoctorToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!doctorToDelete) return;
+    try {
+      await deleteDoctor(doctorToDelete);
+    } catch (err) {
+      console.error('Error deleting doctor:', err);
+    } finally {
+      setDeleteConfirmOpen(false);
+      setDoctorToDelete(null);
     }
   };
 
@@ -476,6 +485,39 @@ export default function DoctorsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DELETE DOCTOR CONFIRMATION DIALOG ── */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-sm bg-white shadow-2xl p-6 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 mb-4">
+            <span className="material-symbols-outlined text-2xl">warning</span>
+          </div>
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-lg font-bold text-slate-800">
+              Delete Doctor Profile
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Are you sure you want to delete this doctor profile? This action will permanently remove their records, weekly schedules, and active consultation slots. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="flex-1 text-xs font-semibold h-9"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              className="flex-1 text-xs font-semibold h-9 bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

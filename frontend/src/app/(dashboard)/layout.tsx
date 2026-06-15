@@ -57,7 +57,7 @@ export default function DashboardLayout({
         <Header />
 
         {/* Dynamic Nested Page Content */}
-        <main className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 p-6 overflow-y-auto no-scrollbar">
           {children}
         </main>
       </div>
