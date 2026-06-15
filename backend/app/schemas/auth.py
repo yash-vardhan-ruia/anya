@@ -44,3 +44,15 @@ class AdminResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminUpdate(BaseModel):
+    """Schema to update the current user profile."""
+    email: EmailStr | None = None
+    full_name: str | None = Field(None, min_length=2, max_length=255)
+
+
+class PasswordUpdate(BaseModel):
+    """Schema to change current user's password."""
+    current_password: str = Field(..., description="The current plaintext password")
+    new_password: str = Field(..., min_length=8, description="The new plaintext password, min 8 chars")

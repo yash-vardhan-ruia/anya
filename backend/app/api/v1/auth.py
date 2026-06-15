@@ -21,7 +21,7 @@ from app.core.security import (
 )
 from app.database import get_db
 from app.models.admin_user import AdminUser
-from app.schemas.auth import AdminCreate, AdminResponse, LoginRequest, TokenResponse
+from app.schemas.auth import AdminCreate, AdminResponse, LoginRequest, TokenResponse, AdminUpdate, PasswordUpdate
 
 router = APIRouter()
 
@@ -112,3 +112,59 @@ async def get_me(
 ) -> AdminResponse:
     """Return the currently authenticated admin user's profile."""
     return AdminResponse.model_validate(current_admin)
+
+
+@router.put(
+    "/me",
+    response_model=AdminResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update current admin profile",
+)
+async def update_me(
+    payload: AdminUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+) -> AdminResponse:
+    """Update the currently authenticated admin user's name and/or email."""
+    if payload.email is not None:
+        # Check if email is already taken
+        if payload.email != current_admin.email:
+            result = await db.execute(
+                select(AdminUser).where(AdminUser.email == payload.email)
+            )
+            existing = result.scalar_one_or_none()
+            if existing is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Admin with email {payload.email} already exists",
+                )
+            current_admin.email = payload.email
+
+    if payload.full_name is not None:
+        current_admin.full_name = payload.full_name
+
+    await db.commit()
+    await db.refresh(current_admin)
+    return AdminResponse.model_validate(current_admin)
+
+
+@router.put(
+    "/me/password",
+    status_code=status.HTTP_200_OK,
+    summary="Update current admin password",
+)
+async def update_my_password(
+    payload: PasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_admin: AdminUser = Depends(get_current_admin),
+) -> dict:
+    """Change the currently authenticated admin user's password."""
+    if not verify_password(payload.current_password, current_admin.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password",
+        )
+
+    current_admin.hashed_password = hash_password(payload.new_password)
+    await db.commit()
+    return {"status": "success", "message": "Password updated successfully"}
