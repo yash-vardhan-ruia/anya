@@ -257,7 +257,7 @@ export default function AppointmentsPage() {
                             {apt.patientName}
                           </span>
                           <span className="text-[10px] text-muted-foreground mt-0.5">
-                            {apt.patientPhone}
+                            {apt.patientEmail}
                           </span>
                         </div>
                       </td>
@@ -355,7 +355,7 @@ export default function AppointmentsPage() {
                     Patient Profile
                   </span>
                   <p className="font-bold text-slate-800">{selectedApt.patientName}</p>
-                  <p className="text-[10px] text-muted-foreground">{selectedApt.patientPhone}</p>
+                  <p className="text-[10px] text-muted-foreground">{selectedApt.patientEmail}</p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -478,7 +478,7 @@ export default function AppointmentsPage() {
               >
                 {patientsList.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.phone})
+                    {p.name} ({p.email})
                   </option>
                 ))}
                 {patientsList.length === 0 && (

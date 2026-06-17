@@ -37,7 +37,7 @@ class PaymentStatus(str, Enum):
 
 
 class CallStatus(str, Enum):
-    """Status of a Twilio voice call session."""
+    """Status of a voice call session."""
 
     INITIATED = "initiated"
     RINGING = "ringing"
@@ -54,17 +54,46 @@ class AdminRole(str, Enum):
 
 
 class ConversationState(str, Enum):
-    """State machine states for the AI voice conversation flow."""
+    """
+    State machine states for the AI voice conversation flow.
 
+    Hybrid voice + browser model:
+    - Voice handles natural conversation
+    - Browser handles precision inputs (email, doctor pick, slot pick, payment)
+    """
+
+    # Anya greets and asks new or returning patient
     GREETING = "greeting"
-    IDENTITY = "identity"
+
+    # Waiting for patient type answer ("new" / "returning")
+    TYPE_CHECK = "type_check"
+
+    # Collecting name, age, gender from new patient (voice)
+    # Email is collected via browser text input
+    NEW_INFO = "new_info"
+
+    # Returning patient: browser shows email input → check_patient_by_email
+    RETURNING_LOOKUP = "returning_lookup"
+
+    # Asking for symptoms / reason for visit (voice)
     SYMPTOMS = "symptoms"
-    DEPT = "dept"
-    DOCTOR = "doctor"
-    SLOT = "slot"
-    REVIEW = "review"
-    PAYMENT = "payment"
-    CONFIRM = "confirm"
+
+    # Suggesting department and confirming (voice)
+    DEPT_ROUTING = "dept_routing"
+
+    # Browser shows doctor cards → patient clicks one
+    DOCTOR_SELECT = "doctor_select"
+
+    # Browser shows slot cards → patient clicks one
+    SLOT_SELECT = "slot_select"
+
+    # Anya reads back all details, asks for verbal confirmation
+    BOOKING_REVIEW = "booking_review"
+
+    # Payment link sent, Anya says goodbye → call auto-ends
+    FAREWELL = "farewell"
+
+    # Session complete
     COMPLETE = "complete"
 
 

@@ -122,12 +122,12 @@ class PatientService:
     @classmethod
     async def create_patient(cls, db: AsyncSession, schema: PatientCreate) -> Patient:
         """Create a new patient from the dashboard."""
-        existing = await cls.get_patient_by_phone(db, schema.phone)
+        existing = await cls.get_patient_by_email(db, schema.email)
         if existing:
-            raise ValueError("Phone number already registered")
+            raise ValueError("Email already registered")
         mrn = cls._generate_mrn()
         new_patient = Patient(
-            phone=schema.phone,
+            phone=getattr(schema, 'phone', None),
             full_name=schema.full_name,
             email=schema.email,
             date_of_birth=schema.date_of_birth,
@@ -170,7 +170,7 @@ class PatientService:
         if search_query:
             stmt = stmt.where(
                 Patient.full_name.ilike(f"%{search_query}%")
-                | Patient.phone.ilike(f"%{search_query}%")
+                | Patient.email.ilike(f"%{search_query}%")
                 | Patient.medical_record_number.ilike(f"%{search_query}%")
             )
 
@@ -178,7 +178,7 @@ class PatientService:
         if search_query:
             count_stmt = select(func.count(Patient.id)).where(
                 Patient.full_name.ilike(f"%{search_query}%")
-                | Patient.phone.ilike(f"%{search_query}%")
+                | Patient.email.ilike(f"%{search_query}%")
                 | Patient.medical_record_number.ilike(f"%{search_query}%")
             )
         else:

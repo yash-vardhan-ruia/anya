@@ -30,7 +30,7 @@ router = APIRouter()
     summary="List patients",
 )
 async def list_patients(
-    phone: str | None = Query(None, description="Filter by phone number"),
+    email: str | None = Query(None, description="Filter by email address"),
     name: str | None = Query(None, description="Search by patient name"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -39,7 +39,7 @@ async def list_patients(
 ) -> PatientListResponse:
     """List patients with optional search by phone number or name, with pagination."""
     skip = (page - 1) * page_size
-    search_query = name or phone
+    search_query = name or email
     total, items = await PatientService.list_patients(
         db=db,
         skip=skip,
@@ -64,7 +64,7 @@ async def create_patient(
     try:
         return await PatientService.create_patient(db=db, schema=payload)
     except ValueError as e:
-        if str(e) == "Phone number already registered":
+        if str(e) in ("Phone number already registered", "Email already registered"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=str(e),

@@ -16,8 +16,7 @@ class DoctorBase(BaseModel):
     qualification: str = Field(..., max_length=500)
     experience_years: int = Field(..., ge=0)
     consultation_fee: int = Field(..., ge=0, description="Fee in paise (INR * 100)")
-    phone: str = Field(..., max_length=20)
-    email: EmailStr | None = None
+    email: EmailStr = Field(..., description="Primary contact email for doctor")
     is_active: bool = True
 
 

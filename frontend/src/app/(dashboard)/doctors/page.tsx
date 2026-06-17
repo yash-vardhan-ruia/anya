@@ -29,7 +29,6 @@ export default function DoctorsPage() {
   // Add doctor form state
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formPhone, setFormPhone] = useState('');
   const [formSpecialty, setFormSpecialty] = useState('General Medicine');
   const [formDepartmentId, setFormDepartmentId] = useState('');
   const [formQualification, setFormQualification] = useState('');
@@ -52,7 +51,6 @@ export default function DoctorsPage() {
   const handleOpenAddDoctor = () => {
     setFormName('');
     setFormEmail('');
-    setFormPhone('');
     setFormSpecialty('General Medicine');
     setFormQualification('');
     setFormExperience('1');
@@ -63,12 +61,11 @@ export default function DoctorsPage() {
 
   const handleAddDoctorSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formPhone || !formDepartmentId) return;
+    if (!formName || !formDepartmentId) return;
     try {
       await createDoctor({
         name: formName,
         email: formEmail || null,
-        phone: formPhone,
         specialty: formSpecialty,
         departmentId: formDepartmentId,
         qualification: formQualification,
@@ -383,21 +380,12 @@ export default function DoctorsPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="font-bold text-slate-700">Email Address</label>
+              <label className="font-bold text-slate-700">Email Address *</label>
               <Input
                 type="email"
                 value={formEmail}
                 onChange={(e) => setFormEmail(e.target.value)}
                 placeholder="doctor@voxmed.com"
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="font-bold text-slate-700">Phone Number *</label>
-              <Input
-                value={formPhone}
-                onChange={(e) => setFormPhone(e.target.value)}
-                placeholder="+91 XXXXX XXXXX"
                 required
                 className="h-9 text-xs"
               />

@@ -18,10 +18,10 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 if TYPE_CHECKING:
     from app.models.appointment import Appointment
     from app.models.call_session import CallSession
-    from app.models.emergency_incident import EmergencyIncident
     from app.models.invoice import Invoice
     from app.models.notification import Notification
     from app.models.payment import Payment
+
 
 
 class Patient(UUIDMixin, TimestampMixin, Base):
@@ -39,11 +39,11 @@ class Patient(UUIDMixin, TimestampMixin, Base):
 
     __tablename__ = "patients"
 
-    phone: Mapped[str] = mapped_column(
+    phone: Mapped[str | None] = mapped_column(
         String(20),
-        unique=True,
-        index=True,
-        nullable=False,
+        unique=False,
+        index=False,
+        nullable=True,
     )
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -82,8 +82,4 @@ class Patient(UUIDMixin, TimestampMixin, Base):
         back_populates="patient",
         lazy="selectin",
     )
-    emergency_incidents: Mapped[list["EmergencyIncident"]] = relationship(
-        "EmergencyIncident",
-        back_populates="patient",
-        lazy="selectin",
-    )
+

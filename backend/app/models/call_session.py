@@ -17,11 +17,11 @@ from app.core.constants import CallStatus, ConversationState
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from app.models.emergency_incident import EmergencyIncident
     from app.models.patient import Patient
 
 
 class CallSession(UUIDMixin, TimestampMixin, Base):
+
     """Voice call session between a patient and the AI assistant.
 
     Tracks the Twilio call lifecycle, conversation state machine state,
@@ -77,8 +77,4 @@ class CallSession(UUIDMixin, TimestampMixin, Base):
         back_populates="call_sessions",
         lazy="selectin",
     )
-    emergency_incidents: Mapped[list["EmergencyIncident"]] = relationship(
-        "EmergencyIncident",
-        back_populates="call_session",
-        lazy="selectin",
-    )
+

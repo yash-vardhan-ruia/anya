@@ -83,7 +83,7 @@ export interface Appointment {
   id: string;
   patientId: string;
   patientName: string;
-  patientPhone: string;
+  patientEmail: string;
   doctorId: string;
   doctorName: string;
   department: string;
@@ -102,7 +102,6 @@ export interface Patient {
   id: string;
   name: string;
   email: string;
-  phone: string;
   dateOfBirth: string;
   gender: 'male' | 'female' | 'other';
   bloodGroup: string;
@@ -122,7 +121,6 @@ export interface Doctor {
   id: string;
   name: string;
   email: string;
-  phone: string;
   specialty: string;
   department: string;
   qualification: string;
@@ -152,7 +150,7 @@ export interface VoiceSession {
   id: string;
   callerId: string;
   callerName: string;
-  callerPhone: string;
+  callerEmail: string;
   agentId: string;
   agentName: string;
   type: 'inbound' | 'outbound';

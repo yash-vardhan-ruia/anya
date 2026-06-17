@@ -13,10 +13,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.constants import AdminRole
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
-if TYPE_CHECKING:
-    from app.models.audit_log import AuditLog
-
-
 class AdminUser(UUIDMixin, TimestampMixin, Base):
     """Administrative user for the hospital management platform.
 
@@ -40,9 +36,3 @@ class AdminUser(UUIDMixin, TimestampMixin, Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # --- Relationships ---
-    audit_logs: Mapped[list["AuditLog"]] = relationship(
-        "AuditLog",
-        back_populates="admin",
-        lazy="selectin",
-    )

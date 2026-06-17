@@ -31,7 +31,7 @@ export function useDoctors() {
             id: doc.id,
             name: doc.full_name || 'Attending Physician',
             email: doc.email || '',
-            phone: doc.phone || '',
+            
             specialty: doc.specialization || 'General Medicine',
             department: doc.department_name || doc.department?.name || 'General Medicine',
             qualification: doc.qualification || 'MD',
@@ -65,10 +65,9 @@ export function useDoctors() {
   // Mutate: Add new doctor
   const createDoctorMutation = useMutation({
     mutationFn: async (newDoc: any) => {
-      const payload = {
+        const payload = {
         full_name: newDoc.name,
         email: newDoc.email || null,
-        phone: newDoc.phone,
         specialization: newDoc.specialty || 'General Medicine',
         department_id: newDoc.departmentId,
         qualification: newDoc.qualification || 'MD',

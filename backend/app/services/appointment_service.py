@@ -34,7 +34,9 @@ class AppointmentService:
         db: AsyncSession,
         schema: AppointmentCreate,
         locked_by_session: str | None = None,
+        commit: bool = True,
     ) -> Appointment:
+
         """Book a new appointment, transition slot to BOOKED, and create a pending invoice.
 
         Also dispatches a Celery task for notifications.
@@ -94,8 +96,10 @@ class AppointmentService:
         # Note: BillingService computes consultation fee and GST
         invoice = await BillingService.create_invoice(db, appointment.id)
 
-        await db.commit()
-        await db.refresh(appointment)
+        if commit:
+            await db.commit()
+            await db.refresh(appointment)
+
         logger.info(
             "Created appointment & pending invoice",
             appointment_id=str(appointment.id),

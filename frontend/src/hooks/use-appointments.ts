@@ -19,7 +19,7 @@ export function useAppointments() {
           id: apt.id,
           patientId: apt.patient_id,
           patientName: apt.patient?.full_name || 'Guest Patient',
-          patientPhone: apt.patient?.phone || '',
+          patientEmail: apt.patient?.email || '',
           doctorId: apt.doctor_id,
           doctorName: apt.doctor?.full_name || 'Attending Staff',
           department: apt.department?.name || 'General Medicine',

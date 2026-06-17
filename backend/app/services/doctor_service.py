@@ -119,7 +119,7 @@ class DoctorService:
             qualification=schema.qualification,
             experience_years=schema.experience_years,
             consultation_fee=schema.consultation_fee,
-            phone=schema.phone,
+            phone=getattr(schema, "phone", None),
             email=schema.email,
             is_active=schema.is_active,
         )

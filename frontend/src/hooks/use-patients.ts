@@ -18,7 +18,7 @@ export function usePatients() {
           id: pat.id,
           name: pat.full_name || 'Anonymous Patient',
           email: pat.email || '',
-          phone: pat.phone || '',
+          
           dateOfBirth: pat.date_of_birth || '',
           gender: pat.gender || 'other',
           bloodGroup: pat.blood_group || 'O+',
@@ -44,7 +44,6 @@ export function usePatients() {
     mutationFn: async (newPatient: Omit<Patient, 'id' | 'createdAt' | 'totalVisits' | 'lastVisit'>) => {
       const payload = {
         full_name: newPatient.name,
-        phone: newPatient.phone,
         email: newPatient.email || null,
         date_of_birth: newPatient.dateOfBirth || null,
         gender: newPatient.gender || null,
@@ -63,7 +62,6 @@ export function usePatients() {
     mutationFn: async ({ id, ...updatedFields }: Partial<Patient> & { id: string }) => {
       const payload: any = {};
       if (updatedFields.name !== undefined) payload.full_name = updatedFields.name;
-      if (updatedFields.phone !== undefined) payload.phone = updatedFields.phone;
       if (updatedFields.email !== undefined) payload.email = updatedFields.email || null;
       if (updatedFields.dateOfBirth !== undefined) payload.date_of_birth = updatedFields.dateOfBirth || null;
       if (updatedFields.gender !== undefined) payload.gender = updatedFields.gender || null;

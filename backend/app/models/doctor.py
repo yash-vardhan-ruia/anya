@@ -8,7 +8,7 @@ qualifications, and consultation fee.
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,8 +47,8 @@ class Doctor(UUIDMixin, TimestampMixin, Base):
     specialization: Mapped[str] = mapped_column(String(255), nullable=False)
     qualification: Mapped[str] = mapped_column(String(500), nullable=False)
     experience_years: Mapped[int] = mapped_column(Integer, nullable=False)
-    consultation_fee: Mapped[int] = mapped_column(Integer, nullable=False)
-    phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    consultation_fee: Mapped[float] = mapped_column(Float, nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

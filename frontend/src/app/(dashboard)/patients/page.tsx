@@ -27,7 +27,6 @@ export default function PatientsPage() {
 
   // Form states
   const [formName, setFormName] = useState('');
-  const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formDob, setFormDob] = useState('');
   const [formGender, setFormGender] = useState('male');
@@ -35,7 +34,6 @@ export default function PatientsPage() {
 
   const resetForm = () => {
     setFormName('');
-    setFormPhone('');
     setFormEmail('');
     setFormDob('');
     setFormGender('male');
@@ -50,7 +48,6 @@ export default function PatientsPage() {
   const handleOpenEdit = (pat: any) => {
     setEditingPatient(pat);
     setFormName(pat.name);
-    setFormPhone(pat.phone);
     setFormEmail(pat.email);
     setFormDob(pat.dateOfBirth ? pat.dateOfBirth.substring(0, 10) : '');
     setFormGender(pat.gender || 'male');
@@ -60,11 +57,10 @@ export default function PatientsPage() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName || !formPhone) return;
+    if (!formName || !formEmail) return;
     try {
       await createPatient({
         name: formName,
-        phone: formPhone,
         email: formEmail,
         dateOfBirth: formDob,
         gender: formGender as any,
@@ -82,12 +78,11 @@ export default function PatientsPage() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPatient || !formName || !formPhone) return;
+    if (!editingPatient || !formName || !formEmail) return;
     try {
       await updatePatient({
         id: editingPatient.id,
         name: formName,
-        phone: formPhone,
         email: formEmail,
         dateOfBirth: formDob,
         gender: formGender as any,
@@ -117,7 +112,6 @@ export default function PatientsPage() {
     return (
       pat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       pat.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pat.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
       pat.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
@@ -226,7 +220,7 @@ export default function PatientsPage() {
                       <div className="flex flex-col">
                         <span className="font-semibold text-slate-700">{pat.email}</span>
                         <span className="text-[10px] text-muted-foreground font-medium mt-0.5">
-                          {pat.phone}
+                          {pat.email}
                         </span>
                       </div>
                     </td>
@@ -323,8 +317,8 @@ export default function PatientsPage() {
                   <p className="font-semibold text-slate-800">{selectedPatient.email}</p>
                 </div>
                 <div className="space-y-0.5">
-                  <span className="text-slate-400 font-medium">Active Phone</span>
-                  <p className="font-semibold text-slate-800">{selectedPatient.phone}</p>
+                  <span className="text-slate-400 font-medium">Primary Contact Email</span>
+                  <p className="font-semibold text-slate-800">{selectedPatient.email}</p>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-slate-400 font-medium">Birthdate</span>
@@ -446,11 +440,12 @@ export default function PatientsPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="font-bold text-slate-700">Phone Number *</label>
+              <label className="font-bold text-slate-700">Email Address *</label>
               <Input
-                value={formPhone}
-                onChange={(e) => setFormPhone(e.target.value)}
-                placeholder="+91 XXXXX XXXXX"
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="patient@example.com"
                 required
                 className="h-9 text-xs"
               />
@@ -543,11 +538,12 @@ export default function PatientsPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="font-bold text-slate-700">Phone Number *</label>
+              <label className="font-bold text-slate-700">Email Address *</label>
               <Input
-                value={formPhone}
-                onChange={(e) => setFormPhone(e.target.value)}
-                placeholder="+91 XXXXX XXXXX"
+                type="email"
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
+                placeholder="patient@example.com"
                 required
                 className="h-9 text-xs"
               />

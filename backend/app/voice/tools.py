@@ -1,132 +1,179 @@
 """
-CareVoice AI Hospital Platform - Gemini Live API Tools.
+CareVoice AI Hospital Platform - Voice Tools Schema.
 
-Defines the JSON schemas for the tools/functions that Anya can execute in real-time.
+Defines the Gemini function declarations for the hybrid voice + browser booking flow.
+These are registered with the Gemini Live API at session setup.
 """
+
+SUPPORTED_DEPARTMENTS = [
+    "Cardiology",
+    "Dermatology",
+    "ENT",
+    "Gastroenterology",
+    "General Medicine",
+    "Neurology",
+    "Oncology",
+    "Ophthalmology",
+    "Orthopedics",
+    "Pediatrics",
+    "Psychiatry",
+    "Pulmonology",
+    "Radiology",
+    "Urology",
+]
 
 REALTIME_TOOLS = [
     {
-        "type": "function",
-        "name": "find_doctor",
+        "name": "check_patient_by_email",
         "description": (
-            "Lookup active doctors and departments in the hospital system. "
-            "Use this when the patient specifies symptoms, a department, or a doctor's name."
+            "Look up an existing patient by their email address. "
+            "Call this immediately when a returning patient speaks their email address."
         ),
         "parameters": {
-            "type": "object",
+            "type": "OBJECT",
+            "properties": {
+                "email": {
+                    "type": "STRING",
+                    "description": "The patient's registered email address (e.g. john.doe@example.com).",
+                },
+            },
+            "required": ["email"],
+        },
+    },
+    {
+        "name": "update_patient_details",
+        "description": (
+            "Update patient registration details in the live session. "
+            "You MUST call this tool as soon as the patient speaks their name, age, gender, or email. "
+            "Do NOT wait to collect all details; call it to update each field in real-time."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "full_name": {
+                    "type": "STRING",
+                    "description": "Patient's full name if spoken.",
+                },
+                "age": {
+                    "type": "INTEGER",
+                    "description": "Patient's age in years if spoken.",
+                },
+                "gender": {
+                    "type": "STRING",
+                    "description": "Patient's gender: 'Male', 'Female', or 'Other' if spoken.",
+                },
+                "email": {
+                    "type": "STRING",
+                    "description": "Patient's email address if spoken.",
+                },
+            },
+        },
+    },
+    {
+        "name": "create_new_patient",
+        "description": (
+            "Register a new patient in the database. "
+            "Call this tool only AFTER all four registration details (full_name, age, gender, email) "
+            "have been collected and updated in the session."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "full_name": {
+                    "type": "STRING",
+                    "description": "Patient's full name.",
+                },
+                "age": {
+                    "type": "INTEGER",
+                    "description": "Patient's age in years.",
+                },
+                "gender": {
+                    "type": "STRING",
+                    "description": "Patient's gender: 'Male', 'Female', or 'Other'.",
+                },
+                "email": {
+                    "type": "STRING",
+                    "description": "Patient's email address.",
+                },
+            },
+            "required": ["full_name", "age", "gender", "email"],
+        },
+    },
+    {
+        "name": "find_doctors_by_department",
+        "description": (
+            "Find available doctors in a specific medical department. "
+            "MUST use only departments from this list: "
+            "Cardiology, Dermatology, ENT, Gastroenterology, General Medicine, "
+            "Neurology, Oncology, Ophthalmology, Orthopedics, Pediatrics, "
+            "Psychiatry, Pulmonology, Radiology, Urology. "
+            "If symptoms don't match, use General Medicine. "
+            "This will retrieve the list of available doctors for the session."
+        ),
+        "parameters": {
+            "type": "OBJECT",
             "properties": {
                 "department_name": {
-                    "type": "string",
-                    "description": "Name of the hospital department, e.g., Cardiology, Orthopedics, Pediatrics",
-                },
-                "search_query": {
-                    "type": "string",
-                    "description": "Optional search term for doctor's name or specialization, e.g. Cardiology",
+                    "type": "STRING",
+                    "description": "Exact department name from the supported list.",
                 },
             },
+            "required": ["department_name"],
         },
     },
     {
-        "type": "function",
-        "name": "get_slots",
-        "description": "Retrieve available bookable time slots for a specific doctor on a calendar date.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "doctor_id": {
-                    "type": "string",
-                    "description": "The unique UUID of the doctor",
-                },
-                "target_date": {
-                    "type": "string",
-                    "description": "ISO date string for slot lookup, e.g. YYYY-MM-DD",
-                },
-            },
-            "required": ["doctor_id", "target_date"],
-        },
-    },
-    {
-        "type": "function",
-        "name": "lock_slot",
+        "name": "select_doctor_by_name",
         "description": (
-            "Temporarily lock a time slot for 5 minutes during the booking review phase. "
-            "Prevents other calls from booking the same slot."
+            "Select a doctor from the available doctors list by their spoken name. "
+            "This will automatically load that doctor's upcoming available appointment slots."
         ),
         "parameters": {
-            "type": "object",
+            "type": "OBJECT",
             "properties": {
-                "slot_id": {
-                    "type": "string",
-                    "description": "The unique UUID of the doctor slot to lock",
-                },
-            },
-            "required": ["slot_id"],
-        },
-    },
-    {
-        "type": "function",
-        "name": "confirm_booking",
-        "description": (
-            "Finalize the appointment booking in the database, transition slot to BOOKED, "
-            "generate invoice, send SMS payment checkout link, and transition state."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "patient_name": {
-                    "type": "string",
-                    "description": "Full legal name of the patient",
-                },
-                "phone": {
-                    "type": "string",
-                    "description": "Patient phone number (format +91XXXXXXXXXX)",
-                },
-                "slot_id": {
-                    "type": "string",
-                    "description": "The unique locked UUID of the doctor slot to book",
-                },
-                "symptoms": {
-                    "type": "string",
-                    "description": "Brief description of the patient's symptoms",
-                },
-            },
-            "required": ["patient_name", "phone", "slot_id"],
-        },
-    },
-    {
-        "type": "function",
-        "name": "send_payment_link",
-        "description": (
-            "Generate a Razorpay payment link and send it to the patient's email. "
-            "Call this after the patient reviews and confirms their booking details. "
-            "This is the final step in booking. Once this tool is executed, bid the patient farewell."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "patient_name": {
-                    "type": "string",
-                    "description": "Full legal name of the patient",
-                },
-                "patient_email": {
-                    "type": "string",
-                    "description": "Patient email address for notifications and payment link",
-                },
                 "doctor_name": {
-                    "type": "string",
-                    "description": "Name of the doctor being booked",
-                },
-                "amount_inr": {
-                    "type": "number",
-                    "description": "Total amount in INR (consultation fee + GST)",
-                },
-                "slot_id": {
-                    "type": "string",
-                    "description": "The unique locked UUID of the doctor slot to book",
+                    "type": "STRING",
+                    "description": "Spoken name of the doctor (e.g. Anil Kumar).",
                 },
             },
-            "required": ["patient_name", "patient_email", "doctor_name", "amount_inr", "slot_id"],
+            "required": ["doctor_name"],
+        },
+    },
+    {
+        "name": "select_appointment_slot",
+        "description": (
+            "Select an appointment slot by its spoken time and day/date from the available slot list."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "time_str": {
+                    "type": "STRING",
+                    "description": "Spoken start time of the slot (e.g. 10:30 AM).",
+                },
+                "date_or_day": {
+                    "type": "STRING",
+                    "description": "Spoken day of week or date (e.g. Monday, 23 Jun).",
+                },
+            },
+            "required": ["time_str"],
+        },
+    },
+    {
+        "name": "lock_and_confirm_booking",
+        "description": (
+            "Book the appointment after the patient has verbally confirmed all details. "
+            "This locks the slot, creates a pending appointment, generates an invoice, "
+            "and creates a Razorpay payment link. Only call this AFTER the patient says 'yes' or 'confirm'."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "symptoms": {
+                    "type": "STRING",
+                    "description": "Patient's symptoms as a concise summary for the doctor's notes.",
+                },
+            },
+            "required": ["symptoms"],
         },
     },
 ]
-

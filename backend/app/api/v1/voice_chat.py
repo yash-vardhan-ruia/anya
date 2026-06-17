@@ -59,12 +59,10 @@ def extract_patient_updates(message: str) -> dict:
     if age_match:
         updates["age"] = int(age_match.group(1))
 
-    phone_match = re.search(r"(\+91[\s-]?)?[6-9]\d{9}", text)
-    if phone_match:
-        phone = phone_match.group(0).replace(" ", "").replace("-", "")
-        if not phone.startswith("+91"):
-            phone = "+91" + phone
-        updates["phone"] = phone
+    email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
+    if email_match:
+        email = email_match.group(0).lower()
+        updates["email"] = email
 
     return updates
 
@@ -98,7 +96,7 @@ def build_gemini_prompt(system_prompt: str, history: list, user_message: str) ->
     return f"""
 {system_prompt}
 
-You are running in browser microphone mode, not Twilio mode.
+You are running in browser microphone mode
 
 Rules:
 - You are Anya, a hospital receptionist.
@@ -108,7 +106,7 @@ Rules:
 - Collect these details step by step:
   1. Patient full name
   2. Age
-  3. Phone number
+  3. Email
   4. Symptoms or reason for visit
   5. Preferred department, doctor, date, or time
 - Do not diagnose disease.
@@ -401,7 +399,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
 
         patient_name = session.get("patient_name", "not provided")
         age = session.get("age", "not provided")
-        phone = session.get("phone", "not provided")
+        email = session.get("email", "not provided")
         symptoms = session.get("symptoms", "not provided")
         department_name = session.get("department_name", "General Medicine")
         doctor_name = session.get("doctor_name", "the selected doctor")
@@ -412,7 +410,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
             f"Your slot is temporarily locked. Please review the details: "
             f"Patient name: {patient_name}. "
             f"Age: {age}. "
-            f"Phone: {phone}. "
+            f"Email: {email}. "
             f"Symptoms: {symptoms}. "
             f"Department: {department_name}. "
             f"Doctor: {doctor_name}. "
@@ -438,14 +436,14 @@ async def voice_chat_message(payload: VoiceChatRequest):
         session = await VoiceSessionManager.get_session(session_id)
 
         patient_name = session.get("patient_name")
-        phone = session.get("phone")
+        email = session.get("email")
         doctor_name = session.get("doctor_name")
         slot_id = session.get("slot_id")
         slot_date = session.get("slot_date_str")
         slot_time = session.get("slot_time_str")
         department_name = session.get("department_name")
 
-        if not patient_name or not phone or not slot_id:
+        if not patient_name or not email or not slot_id:
             return VoiceChatResponse(
                 session_id=session_id,
                 reply="Some booking details are missing. Please restart the booking.",
@@ -476,7 +474,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
         payment_link = razorpay_client.create_payment_link(
             amount_paise=amount_paise,
             customer_name=patient_name,
-            customer_phone=phone,
+            customer_email=email,
             description=f"Appointment with {doctor_name}",
             reference_id=session_id[:40],
             expire_by=expire_by,
@@ -484,7 +482,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
                 "session_id": session_id,
                 "slot_id": slot_id,
                 "patient_name": patient_name,
-                "phone": phone,
+                "email": email,
                 "doctor_name": doctor_name,
                 "department_name": department_name,
                 "slot_date": slot_date,
@@ -508,7 +506,7 @@ async def voice_chat_message(payload: VoiceChatRequest):
             reply=(
                 f"Payment link generated successfully. "
                 f"Amount is INR {amount_paise / 100:.2f}. "
-                f"A payment link has been sent to {phone}. "
+                f"A payment link has been sent to {email}. "
                 f"Link: {payment_link.get('short_url')}"
             ),
             state="payment",

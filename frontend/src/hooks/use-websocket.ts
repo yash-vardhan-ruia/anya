@@ -91,7 +91,7 @@ const DIALOGUE_FLOW = [
     node: 'BOOKING_SUCCESS' as ConversationNode,
     sentiment: 'positive' as const,
     score: 98,
-    text: "\nAI: Done! The appointment has been successfully scheduled. Zoya is booked for 2:30 PM today in Pediatric Clinic Cabin 4. I have dispatched a confirmation SMS with map directions and a parking pass to your phone. Please arrive 10 minutes early. Is there anything else I can assist you with?"
+    text: "\nAI: Done! The appointment has been successfully scheduled. Zoya is booked for 2:30 PM today in Pediatric Clinic Cabin 4. I have sent a confirmation email with map directions and a parking pass to your email. Please arrive 10 minutes early. Is there anything else I can assist you with?"
   },
   {
     node: 'BOOKING_SUCCESS' as ConversationNode,
@@ -225,7 +225,7 @@ export function useWebsocket() {
       id: 'live-sim-call',
       callerId: 'pat-4',
       callerName: 'Zoya Patel (Father: Rohan)',
-      callerPhone: '+91 96543 21098',
+      callerEmail: 'zoya.patel@example.com',
       agentId: 'voice-agent-primary',
       agentName: 'CareVoice AI Primary',
       type: 'inbound',

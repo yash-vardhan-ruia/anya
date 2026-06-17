@@ -5,38 +5,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useVoiceSession } from '@/hooks/use-voice-session';
+import { useVoiceSession, DoctorCard, SlotCard } from '@/hooks/use-voice-session';
 
 const STATE_ORDER = [
   'greeting',
-  'identity',
+  'type_check',
+  'new_info',
+  'returning_lookup',
   'symptoms',
-  'dept',
-  'doctor',
-  'slot',
-  'review',
-  'payment',
-  'confirm',
+  'dept_routing',
+  'doctor_select',
+  'slot_select',
+  'booking_review',
+  'farewell',
   'complete'
 ];
 
 const STATE_LABELS: Record<string, { title: string; color: string; desc: string; icon: string }> = {
-  greeting: { title: 'Welcome Greeting', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30', desc: 'Greeting the patient and collecting name.', icon: 'waving_hand' },
-  identity: { title: 'Patient Profile', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30', desc: 'Retrieving patient contact and age details.', icon: 'person_search' },
-  symptoms: { title: 'Symptom Triage', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30', desc: 'Analyzing symptoms and urgency.', icon: 'medical_information' },
-  dept: { title: 'Department Match', color: 'bg-teal-500/10 text-teal-400 border-teal-500/30', desc: 'Routing patient to the correct clinical specialty.', icon: 'lan' },
-  doctor: { title: 'Doctor Selection', color: 'bg-purple-500/10 text-purple-400 border-purple-500/30', desc: 'Selecting a doctor from on-duty staff.', icon: 'doctor' },
-  slot: { title: 'Slot Allocation', color: 'bg-pink-500/10 text-pink-400 border-pink-500/30', desc: 'Locking an available appointment timeslot.', icon: 'event_busy' },
-  review: { title: 'Details Verification', color: 'bg-orange-500/10 text-orange-400 border-orange-500/30', desc: 'Reviewing slot and patient details.', icon: 'fact_check' },
-  payment: { title: 'Payment Processing', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', desc: 'Generating payment link and verifying invoice.', icon: 'payments' },
-  confirm: { title: 'Confirming Booking', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', desc: 'Confirming appointment status.', icon: 'task_alt' },
-  complete: { title: 'Booking Confirmed', color: 'bg-emerald-600 text-white border-transparent', desc: 'Appointment successfully created in EHR!', icon: 'verified' },
+  greeting: { title: 'Welcome', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30', desc: 'Greeting and introducing Anya.', icon: 'waving_hand' },
+  type_check: { title: 'New or Returning?', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30', desc: 'Determining visit type.', icon: 'people' },
+  new_info: { title: 'Patient Details', color: 'bg-violet-500/10 text-violet-400 border-violet-500/30', desc: 'Collecting name, age, gender.', icon: 'person_add' },
+  returning_lookup: { title: 'Patient Lookup', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', desc: 'Finding existing patient record.', icon: 'manage_search' },
+  symptoms: { title: 'Symptom Triage', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30', desc: 'Recording symptoms and reason for visit.', icon: 'medical_information' },
+  dept_routing: { title: 'Department Routing', color: 'bg-teal-500/10 text-teal-400 border-teal-500/30', desc: 'Matching symptoms to clinical specialty.', icon: 'lan' },
+  doctor_select: { title: 'Doctor Selection', color: 'bg-purple-500/10 text-purple-400 border-purple-500/30', desc: 'Choosing from available doctors.', icon: 'doctor' },
+  slot_select: { title: 'Slot Allocation', color: 'bg-pink-500/10 text-pink-400 border-pink-500/30', desc: 'Picking an appointment timeslot.', icon: 'calendar_month' },
+  booking_review: { title: 'Booking Review', color: 'bg-orange-500/10 text-orange-400 border-orange-500/30', desc: 'Reviewing all appointment details.', icon: 'fact_check' },
+  farewell: { title: 'Payment & Goodbye', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', desc: 'Redirecting to payment and ending call.', icon: 'payments' },
+  complete: { title: 'Booking Confirmed', color: 'bg-emerald-600 text-white border-transparent', desc: 'Appointment successfully booked!', icon: 'verified' },
 };
 
 export default function LiveVoiceCallPage() {
   const [sessionKey, setSessionKey] = useState<string>('');
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isOnHold, setIsOnHold] = useState<boolean>(false);
+  const [emailInputValue, setEmailInputValue] = useState('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate session ID on mount
@@ -54,6 +57,16 @@ export default function LiveVoiceCallPage() {
     startSession,
     stopSession,
     toggleMute,
+    activeInput,
+    doctorOptions,
+    doctorDepartment,
+    slotOptions,
+    slotDoctorName,
+    paymentUrl,
+    paymentAmount,
+    submitInput,
+    selectDoctor,
+    selectSlot,
   } = useVoiceSession(sessionKey);
 
   const transcriptsEndRef = useRef<HTMLDivElement>(null);
@@ -91,6 +104,7 @@ export default function LiveVoiceCallPage() {
     stopSession();
     setIsOnHold(false);
     setCallDuration(0);
+    setEmailInputValue('');
     setSessionKey(`web-${Math.random().toString(36).substring(2, 12)}-${Date.now()}`);
   };
 
@@ -135,6 +149,8 @@ export default function LiveVoiceCallPage() {
   };
 
   const statusDisplay = getStatusDisplay();
+
+  const showInteractivePanel = !!paymentUrl;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -301,6 +317,25 @@ export default function LiveVoiceCallPage() {
                   </span>
                 </div>
 
+                {/* Gender */}
+                <div className={cn(
+                  "flex justify-between items-center px-4 py-3 border-l-4 transition-all duration-300",
+                  sessionState?.gender 
+                    ? "border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10" 
+                    : "border-slate-200 dark:border-zinc-800"
+                )}>
+                  <span className="text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[14px]">transgender</span>
+                    Gender
+                  </span>
+                  <span className={cn(
+                    "font-bold text-xs transition-colors",
+                    sessionState?.gender ? "text-emerald-600 dark:text-emerald-400" : "text-slate-450"
+                  )}>
+                    {sessionState?.gender || 'Pending...'}
+                  </span>
+                </div>
+
                 {/* Email */}
                 <div className={cn(
                   "flex justify-between items-center px-4 py-3 border-l-4 transition-all duration-300",
@@ -396,6 +431,19 @@ export default function LiveVoiceCallPage() {
                   </span>
                 </div>
 
+                {/* Amount */}
+                {sessionState?.amount_inr && (
+                  <div className="flex justify-between items-center px-4 py-3 border-l-4 border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10 transition-all">
+                    <span className="text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 text-[10px]">
+                      <span className="material-symbols-outlined text-[14px]">receipt</span>
+                      Consult Fee
+                    </span>
+                    <span className="font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                      ₹{Number(sessionState.amount_inr).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 {sessionState?.is_emergency && (
                   <div className="px-4 py-3 bg-red-500/10 text-red-500 font-bold text-center border-t border-red-500/20 flex items-center justify-center gap-1.5">
                     <span className="material-symbols-outlined text-[14px] animate-ping">warning</span>
@@ -454,13 +502,45 @@ export default function LiveVoiceCallPage() {
               </Button>
             </CardHeader>
 
-            <CardContent className="flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-900 overflow-hidden p-0 z-10">
+            {/* Interactive Panel (Payment Redirect Card only) */}
+            {showInteractivePanel && paymentUrl && (
+              <div className="border-b border-slate-900 bg-slate-950/80 p-4 z-10 max-h-[250px] overflow-y-auto custom-scrollbar">
+                {/* PAYMENT REDIRECT CARD */}
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-400 text-[18px]">payments</span>
+                    <span className="text-xs font-bold text-emerald-300">Payment Portal Ready</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300">Your appointment is booked! Complete payment to confirm.</p>
+                  {paymentAmount && (
+                    <p className="text-xs text-white font-semibold">Amount due: <span className="text-emerald-400">₹{paymentAmount.toFixed(2)}</span></p>
+                  )}
+                  <a
+                    href={paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                    Pay Now
+                  </a>
+                </div>
+              </div>
+            )}
+
+            <CardContent className={cn(
+              "flex-1 flex overflow-hidden p-0 z-10",
+              showInteractivePanel ? "flex-row divide-x divide-slate-900" : "flex-col md:flex-row md:divide-x divide-y md:divide-y-0 divide-slate-900"
+            )}>
               {/* Voice Status & Mic button (Left) */}
-              <div className="flex-[4] flex flex-col items-center justify-center p-6 space-y-8 bg-slate-955/30 relative">
+              <div className={cn(
+                "flex flex-col items-center justify-center p-6 space-y-8 bg-slate-955/30 relative",
+                showInteractivePanel ? "w-[35%]" : "flex-[4]"
+              )}>
                 {/* Visualizer audio equalizer wave */}
                 <div className="w-full">
                   <div className="flex items-end gap-1 h-12 justify-center">
-                    {Array.from({ length: 16 }).map((_, i) => {
+                    {Array.from({ length: showInteractivePanel ? 10 : 16 }).map((_, i) => {
                       const isSpeaking = status === 'speaking' && !isOnHold;
                       const isListening = status === 'listening' && !isOnHold;
                       const delay = `${(i * 0.085).toFixed(2)}s`;
@@ -469,13 +549,13 @@ export default function LiveVoiceCallPage() {
                         <div
                           key={i}
                           className={cn(
-                            "visualizer-bar transition-all duration-300",
+                            "visualizer-bar transition-colors duration-350",
                             isSpeaking ? "bg-emerald-500 animate-[dance_1.1s_ease-in-out_infinite]" : "",
                             isListening ? (isMuted ? "bg-amber-500/50 animate-[subtle-dance_2s_ease-in-out_infinite]" : "bg-blue-500/80 animate-[dance_1.8s_ease-in-out_infinite]") : "bg-slate-800"
                           )}
                           style={{
                             animationDelay: isSpeaking || isListening ? delay : undefined,
-                            height: isSpeaking || isListening ? undefined : '6px',
+                            height: isSpeaking || isListening ? '8px' : '6px',
                             width: '4px',
                             borderRadius: '2px'
                           }}
@@ -489,103 +569,112 @@ export default function LiveVoiceCallPage() {
                 <div className="relative flex items-center justify-center">
                   {status === 'listening' && !isMuted && !isOnHold && (
                     <>
-                      <span className="absolute h-36 w-36 rounded-full border border-blue-500/20 animate-ping pointer-events-none" />
-                      <span className="absolute h-40 w-40 rounded-full border border-blue-500/10 animate-[ring-pulse_2.5s_ease-in-out_infinite] pointer-events-none" style={{ animationDelay: '0.5s' }} />
+                      <span className={cn("absolute rounded-full border border-blue-500/20 animate-ping pointer-events-none", showInteractivePanel ? "h-24 w-24" : "h-36 w-36")} />
+                      <span className={cn("absolute rounded-full border border-blue-500/10 animate-[ring-pulse_2.5s_ease-in-out_infinite] pointer-events-none", showInteractivePanel ? "h-28 w-28" : "h-40 w-40")} style={{ animationDelay: '0.5s' }} />
                     </>
                   )}
                   {status === 'speaking' && !isOnHold && (
                     <>
-                      <span className="absolute h-36 w-36 rounded-full border border-emerald-500/20 animate-ping pointer-events-none" />
-                      <span className="absolute h-40 w-40 rounded-full border border-emerald-500/10 animate-[ring-pulse_2.5s_ease-in-out_infinite] pointer-events-none" style={{ animationDelay: '0.5s' }} />
+                      <span className={cn("absolute rounded-full border border-emerald-500/20 animate-ping pointer-events-none", showInteractivePanel ? "h-24 w-24" : "h-36 w-36")} />
+                      <span className={cn("absolute rounded-full border border-emerald-500/10 animate-[ring-pulse_2.5s_ease-in-out_infinite] pointer-events-none", showInteractivePanel ? "h-28 w-28" : "h-40 w-40")} style={{ animationDelay: '0.5s' }} />
                     </>
                   )}
 
                   {status === 'idle' ? (
                     <button
                       onClick={startSession}
-                      className="relative flex items-center justify-center h-28 w-28 rounded-full bg-gradient-to-r from-voxmed-primary to-indigo-600 hover:scale-105 transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-indigo-500/40 group active:scale-95"
+                      className={cn("relative flex items-center justify-center rounded-full bg-gradient-to-r from-voxmed-primary to-indigo-600 hover:scale-105 transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-indigo-500/40 group active:scale-95", showInteractivePanel ? "h-16 w-16" : "h-28 w-28")}
                     >
-                      <span className="material-symbols-outlined text-4xl text-white group-hover:scale-110 transition-transform">call</span>
-                      <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Start Call</span>
+                      <span className={cn("material-symbols-outlined text-white group-hover:scale-110 transition-transform", showInteractivePanel ? "text-2xl" : "text-4xl")}>call</span>
+                      {!showInteractivePanel && <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Start Call</span>}
                     </button>
                   ) : status === 'connecting' ? (
-                    <div className="relative flex items-center justify-center h-28 w-28 rounded-full bg-slate-900 border border-slate-800">
+                    <div className={cn("relative flex items-center justify-center rounded-full bg-slate-900 border border-slate-800", showInteractivePanel ? "h-16 w-16" : "h-28 w-28")}>
                       <span className="absolute inset-0 rounded-full border-2 border-dashed border-amber-500 animate-[spin_3s_linear_infinite]" />
-                      <span className="material-symbols-outlined text-3xl text-amber-500 animate-pulse">hourglass_empty</span>
-                      <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Connecting</span>
+                      <span className={cn("material-symbols-outlined text-amber-500 animate-pulse", showInteractivePanel ? "text-2xl" : "text-3xl")}>hourglass_empty</span>
+                      {!showInteractivePanel && <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Connecting</span>}
                     </div>
                   ) : status === 'connected' ? (
-                    <div className="relative flex items-center justify-center h-28 w-28 rounded-full bg-slate-900 border-2 border-dashed border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                      <span className="material-symbols-outlined text-3xl text-emerald-400">check_circle</span>
-                      <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Connected</span>
+                    <div className={cn("relative flex items-center justify-center rounded-full bg-slate-900 border-2 border-dashed border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]", showInteractivePanel ? "h-16 w-16" : "h-28 w-28")}>
+                      <span className={cn("material-symbols-outlined text-emerald-400", showInteractivePanel ? "text-2xl" : "text-3xl")}>check_circle</span>
+                      {!showInteractivePanel && <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Connected</span>}
                     </div>
                   ) : (
-                    <div className="relative flex items-center justify-center h-28 w-28 rounded-full bg-slate-905 border border-slate-800 shadow-inner">
+                    <div className={cn("relative flex items-center justify-center rounded-full bg-slate-905 border border-slate-800 shadow-inner", showInteractivePanel ? "h-16 w-16" : "h-28 w-28")}>
                       {/* Active mic button display */}
                       <div className={cn(
-                        "h-24 w-24 rounded-full flex items-center justify-center transition-all duration-300",
+                        "rounded-full flex items-center justify-center transition-all duration-300",
+                        showInteractivePanel ? "h-14 w-14" : "h-24 w-24",
                         isOnHold ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" :
                         status === 'listening' ? (isMuted ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-blue-500/10 text-blue-400 border border-blue-500/30") :
                         status === 'speaking' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" :
                         "bg-red-500/10 text-red-500 border border-red-500/30"
                       )}>
-                        <span className="material-symbols-outlined text-4xl">
+                        <span className={cn("material-symbols-outlined", showInteractivePanel ? "text-2xl" : "text-4xl")}>
                           {isOnHold ? 'pause' : (status === 'listening' ? (isMuted ? 'mic_off' : 'mic') : (status === 'speaking' ? 'volume_up' : 'error'))}
                         </span>
                       </div>
-                      <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                      {!showInteractivePanel && <span className="absolute -bottom-8 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
                         {isOnHold ? 'On Hold' : (status === 'listening' ? (isMuted ? 'Muted' : 'Listening') : (status === 'speaking' ? 'Speaking' : 'Error'))}
-                      </span>
+                      </span>}
                     </div>
                   )}
                 </div>
 
                 {/* Control Action Buttons (Mute, Hold, End Call) */}
                 {status !== 'idle' && status !== 'connecting' && status !== 'connected' && (
-                  <div className="flex items-center gap-4 pt-6">
+                  <div className={cn("flex items-center pt-2", showInteractivePanel ? "gap-2" : "gap-4 pt-6")}>
                     {/* Mute Button */}
                     <button
                       onClick={toggleMute}
                       disabled={isOnHold}
                       className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center border transition-all duration-200 active:scale-90",
+                        "rounded-full flex items-center justify-center border transition-all duration-200 active:scale-90",
+                        showInteractivePanel ? "h-8 w-8" : "h-10 w-10",
                         isMuted 
                           ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" 
                           : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
                       )}
                       title={isMuted ? "Unmute Mic" : "Mute Mic"}
                     >
-                      <span className="material-symbols-outlined text-sm">{isMuted ? 'mic_off' : 'mic'}</span>
+                      <span className={cn("material-symbols-outlined", showInteractivePanel ? "text-xs" : "text-sm")}>{isMuted ? 'mic_off' : 'mic'}</span>
                     </button>
 
                     {/* End Call Button */}
                     <button
                       onClick={handleEndCall}
-                      className="h-12 w-12 rounded-full flex items-center justify-center bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:scale-105 active:scale-90 transition-all"
+                      className={cn(
+                        "rounded-full flex items-center justify-center bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:scale-105 active:scale-90 transition-all",
+                        showInteractivePanel ? "h-10 w-10" : "h-12 w-12"
+                      )}
                       title="End Call"
                     >
-                      <span className="material-symbols-outlined text-base">call_end</span>
+                      <span className={cn("material-symbols-outlined", showInteractivePanel ? "text-sm" : "text-base")}>call_end</span>
                     </button>
 
                     {/* Hold Button */}
                     <button
                       onClick={() => setIsOnHold(!isOnHold)}
                       className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center border transition-all duration-200 active:scale-90",
+                        "rounded-full flex items-center justify-center border transition-all duration-200 active:scale-90",
+                        showInteractivePanel ? "h-8 w-8" : "h-10 w-10",
                         isOnHold 
                           ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" 
                           : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
                       )}
                       title={isOnHold ? "Resume Call" : "Put on Hold"}
                     >
-                      <span className="material-symbols-outlined text-sm">{isOnHold ? 'play_arrow' : 'pause'}</span>
+                      <span className={cn("material-symbols-outlined", showInteractivePanel ? "text-xs" : "text-sm")}>{isOnHold ? 'play_arrow' : 'pause'}</span>
                     </button>
                   </div>
                 )}
               </div>
 
               {/* Scrollable Transcript List (Right) */}
-              <div className="flex-[6] flex flex-col h-full bg-slate-950/50 overflow-hidden">
+              <div className={cn(
+                "flex flex-col h-full bg-slate-950/50 overflow-hidden",
+                showInteractivePanel ? "w-[65%]" : "flex-[6]"
+              )}>
                 <div className="px-5 py-3 border-b border-slate-900 bg-slate-955/60 flex justify-between items-center backdrop-blur-md">
                   <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[13px] text-voxmed-primary">forum</span>
@@ -637,7 +726,7 @@ export default function LiveVoiceCallPage() {
           <div className="p-4 border border-slate-205 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900/40 text-[10px] text-muted-foreground flex gap-3 items-start leading-normal shadow-sm">
             <span className="material-symbols-outlined text-voxmed-primary text-base shrink-0 mt-0.5">info</span>
             <div>
-              <strong className="text-slate-800 dark:text-zinc-350">Speech Guidelines</strong>: Act as a patient booking a hospital appointment. State your full name, age, email address (speak naturally, e.g. "my email is john at gmail dot com"), symptoms (e.g. "severe headache"), preferred department, preferred doctor, and preferred calendar slot. Anya will trigger function tools in real time to query the database, register details, dispatch a Celery payment confirmation, and end the call.
+              <strong className="text-slate-800 dark:text-zinc-350">Speech Guidelines</strong>: Act as a patient booking a hospital appointment. Follow Anya's instructions. Speak all your responses (name, age, gender, email, preferred doctor, and slot time) aloud. Anya will confirm each detail verbally and update the EHR panel in real time before redirecting you to payment.
             </div>
           </div>
         </div>

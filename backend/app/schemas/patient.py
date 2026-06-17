@@ -10,9 +10,8 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class PatientBase(BaseModel):
-    phone: str = Field(..., description="Unique contact phone number")
+    email: EmailStr = Field(..., description="Primary contact email")
     full_name: str = Field(..., min_length=2, max_length=255)
-    email: EmailStr | None = None
     date_of_birth: date | None = None
     gender: str | None = Field(None, max_length=20)
     address: str | None = Field(None, max_length=500)
@@ -25,7 +24,6 @@ class PatientCreate(PatientBase):
 
 class PatientUpdate(BaseModel):
     """Schema for updating patient demographics."""
-    phone: str | None = None
     full_name: str | None = None
     email: EmailStr | None = None
     date_of_birth: date | None = None

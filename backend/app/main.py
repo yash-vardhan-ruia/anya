@@ -7,8 +7,9 @@ and exposes WebSocket/health check routes.
 
 import structlog
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
 from app.config import settings
+
+
 from app.core.exceptions import register_exception_handlers
 from app.core.middleware import configure_cors, RequestLoggingMiddleware
 from app.api.v1.router import router as api_v1_router
@@ -31,8 +32,6 @@ configure_cors(app)
 # 2. Structured Request Logging Middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# 3. Prometheus Metrics (exposes /metrics for Prometheus scraping)
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # 4. Global Exception Handling
 register_exception_handlers(app)
