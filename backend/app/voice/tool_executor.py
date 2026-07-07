@@ -152,7 +152,7 @@ async def _handle_find_doctors_by_department(tool_args: dict, session: dict, db:
 
     doctor_cards = []
     for doc in doctors:
-        fee_inr = round(float(doc.consultation_fee) / 100.0, 0) if doc.consultation_fee else 0
+        fee_inr = round(float(doc.consultation_fee), 0) if doc.consultation_fee else 0
         doctor_cards.append({
             "id": str(doc.id),
             "name": doc.full_name,
@@ -212,7 +212,7 @@ async def _handle_select_doctor_by_name(tool_args: dict, session: dict, db: Asyn
                 "id": str(doc_obj.id),
                 "name": doc_obj.full_name,
                 "specialization": doc_obj.specialization or "Specialist",
-                "fee_inr": round(float(doc_obj.consultation_fee) / 100.0, 0) if doc_obj.consultation_fee else 0,
+                "fee_inr": round(float(doc_obj.consultation_fee), 0) if doc_obj.consultation_fee else 0,
             }
 
     if not matched_doc:

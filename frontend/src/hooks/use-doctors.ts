@@ -36,7 +36,7 @@ export function useDoctors() {
             department: doc.department_name || doc.department?.name || 'General Medicine',
             qualification: doc.qualification || 'MD',
             experience: doc.experience_years || 0,
-            consultationFee: doc.consultation_fee ? (doc.consultation_fee / 100) : 0,
+            consultationFee: doc.consultation_fee ? Number(doc.consultation_fee) : 0,
             avatar: doc.avatar || undefined,
             status: doc.is_active ? 'available' : 'offline',
             availability: availability,
@@ -72,7 +72,7 @@ export function useDoctors() {
         department_id: newDoc.departmentId,
         qualification: newDoc.qualification || 'MD',
         experience_years: Number(newDoc.experience) || 0,
-        consultation_fee: Number(newDoc.consultationFee) * 100, // INR to paise
+        consultation_fee: Number(newDoc.consultationFee) || 0.0,
         is_active: true,
       };
       const res = await api.post('/doctors', payload);

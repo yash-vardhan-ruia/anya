@@ -15,7 +15,7 @@ class DoctorBase(BaseModel):
     specialization: str = Field(..., max_length=255)
     qualification: str = Field(..., max_length=500)
     experience_years: int = Field(..., ge=0)
-    consultation_fee: int = Field(..., ge=0, description="Fee in paise (INR * 100)")
+    consultation_fee: float = Field(..., ge=0, description="Fee in INR (Rupees)")
     email: EmailStr = Field(..., description="Primary contact email for doctor")
     is_active: bool = True
 
@@ -32,7 +32,7 @@ class DoctorUpdate(BaseModel):
     specialization: str | None = None
     qualification: str | None = None
     experience_years: int | None = None
-    consultation_fee: int | None = None
+    consultation_fee: float | None = None
     phone: str | None = None
     email: EmailStr | None = None
     is_active: bool | None = None

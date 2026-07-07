@@ -11,9 +11,9 @@ async def main():
             await session.execute(text("DROP TABLE IF EXISTS audit_logs CASCADE;"))
             await session.execute(text("DROP TABLE IF EXISTS emergency_incidents CASCADE;"))
             
-            # 2. Update doctor consultation fees to 100 paise (1 INR)
-            print("Updating doctor consultation fees to 100 paise (1 INR)...")
-            await session.execute(text("UPDATE doctors SET consultation_fee = 100;"))
+            # 2. Update doctor consultation fees to 1.0 (1 INR)
+            print("Updating doctor consultation fees to 1.0 (1 INR)...")
+            await session.execute(text("UPDATE doctors SET consultation_fee = 1.0;"))
             
             await session.commit()
             print("Database schema cleanup and doctor fees update completed successfully!")

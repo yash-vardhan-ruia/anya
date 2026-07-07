@@ -6,9 +6,9 @@ async def main():
     print("Updating doctor consultation fees in database...")
     async with async_session_factory() as session:
         try:
-            await session.execute(text("UPDATE doctors SET consultation_fee = 100;"))
+            await session.execute(text("UPDATE doctors SET consultation_fee = 1.0;"))
             await session.commit()
-            print("Successfully updated every doctor's fee to 100 paise (1 INR)!")
+            print("Successfully updated every doctor's fee to 1.0 (1 INR)!")
         except Exception as e:
             await session.rollback()
             print(f"Error updating fees: {e}")

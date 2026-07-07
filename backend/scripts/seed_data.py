@@ -111,7 +111,7 @@ async def seed() -> None:
                     "specialization": "Pediatrician",
                     "qualification": "MD - Pediatrics, MBBS",
                     "experience_years": 12,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "Pediatrics",
                     "days": [0, 1, 2, 3, 4], # Mon-Fri
                     "start": datetime.time(9, 0),
@@ -124,7 +124,7 @@ async def seed() -> None:
                     "specialization": "Cardiologist",
                     "qualification": "DM - Cardiology, MD, MBBS",
                     "experience_years": 15,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "Cardiology",
                     "days": [0, 2, 4], # Mon, Wed, Fri
                     "start": datetime.time(10, 0),
@@ -137,7 +137,7 @@ async def seed() -> None:
                     "specialization": "General Physician",
                     "qualification": "MD - Internal Medicine, MBBS",
                     "experience_years": 10,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "General Medicine",
                     "days": [0, 1, 2, 3, 4, 5], # Mon-Sat
                     "start": datetime.time(9, 0),
@@ -150,7 +150,7 @@ async def seed() -> None:
                     "specialization": "Orthopedic Surgeon",
                     "qualification": "MS - Orthopedics, MBBS",
                     "experience_years": 8,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "Orthopedics",
                     "days": [1, 3, 5], # Tue, Thu, Sat
                     "start": datetime.time(11, 0),
@@ -163,7 +163,7 @@ async def seed() -> None:
                     "specialization": "Dermatologist",
                     "qualification": "DDVL, MD - Dermatology, MBBS",
                     "experience_years": 7,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "Dermatology",
                     "days": [0, 2, 5], # Mon, Wed, Sat
                     "start": datetime.time(14, 0),
@@ -176,7 +176,7 @@ async def seed() -> None:
                     "specialization": "Neurologist",
                     "qualification": "DM - Neurology, MD, MBBS",
                     "experience_years": 18,
-                    "consultation_fee": 100,
+                    "consultation_fee": 1.0,
                     "department_name": "Neurology",
                     "days": [1, 4], # Tue, Fri
                     "start": datetime.time(10, 0),

@@ -31,31 +31,27 @@ Celery Workers → Notifications (WhatsApp, SMS, Email)
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | Python 3.11, FastAPI, SQLAlchemy 2.0 (async), Alembic |
-| **Database** | PostgreSQL 15, Redis 7 |
+| **Database** | PostgreSQL 15 (Supabase remote), Redis 7 |
 | **Task Queue** | Celery 5 (worker + beat scheduler) |
 | **Frontend** | Next.js 16, TypeScript, Tailwind CSS, ShadCN UI, Zustand |
 | **AI Voice** | Gemini Multimodal Live API, Twilio Voice + Media Streams |
 | **Payments** | Razorpay (UPI, Payment Links, Webhooks) |
 | **Notifications** | WhatsApp, SMS, Email via Twilio / SMTP |
-| **Monitoring** | Prometheus v2.53, Grafana 11.2 |
 | **DevOps** | Docker, Docker Compose, GitHub Actions |
 
 ---
 
 ## Docker Containers
 
-The platform runs as **8 containers** managed by Docker Compose:
+The platform runs as **5 containers** managed by Docker Compose:
 
 | Container | Image | Port | Description |
 |-----------|-------|------|-------------|
-| `carevoice-db` | `postgres:15-alpine` | `5433→5432` | Primary PostgreSQL database |
 | `carevoice-redis` | `redis:7-alpine` | `6379` | Cache, session store & Celery broker |
 | `carevoice-backend` | `anya-backend` (built) | `8000` | FastAPI REST + WebSocket server |
 | `carevoice-celery-worker` | `anya-celery-worker` (built) | — | Async task processor (notifications, billing, slots) |
 | `carevoice-celery-beat` | `anya-celery-beat` (built) | — | Periodic task scheduler |
 | `carevoice-frontend` | `anya-frontend` (built) | `3000` | Next.js admin dashboard |
-| `carevoice-prometheus` | `prom/prometheus:v2.53.0` | `9090` | Metrics collection |
-| `carevoice-grafana` | `grafana/grafana:11.2.0` | `3001` | Metrics dashboards |
 
 ---
 
@@ -81,7 +77,7 @@ Edit `.env` and fill in the required API keys (see [Environment Variables](#envi
 docker compose up -d --build
 ```
 
-This builds the backend, frontend, celery-worker, and celery-beat images, then starts all 8 containers. The database is automatically initialised and the admin user is seeded on first boot.
+This builds the backend, frontend, celery-worker, and celery-beat images, then starts all 5 containers. The database is automatically initialised and the admin user is seeded on first boot.
 
 ### 3. Verify Everything is Running
 
@@ -98,8 +94,6 @@ All containers should show `Up` or `Up (healthy)`. The backend performs a health
 | **Admin Dashboard** | http://localhost:3000 | `admin@carevoice.ai` / `password123` |
 | **Backend API** | http://localhost:8000 | — |
 | **Swagger Docs** | http://localhost:8000/docs | — |
-| **Prometheus** | http://localhost:9090 | — |
-| **Grafana** | http://localhost:3001 | `admin` / `carevoice_grafana` |
 
 > **First login:** Use `admin@carevoice.ai` / `password123`. The database starts completely empty — add departments, doctors, and patients through the dashboard UI.
 
@@ -216,9 +210,6 @@ carevoice/
 │   │   ├── hooks/           # Data-fetching React hooks
 │   │   └── lib/             # API client & utilities
 │   └── Dockerfile
-├── monitoring/
-│   └── prometheus/
-│       └── prometheus.yml   # Prometheus scrape config
 ├── .env.example             # Environment variable template
 ├── docker-compose.yml       # Full stack orchestration
 └── README.md
@@ -269,7 +260,7 @@ Interactive Swagger UI is available at **http://localhost:8000/docs** once the b
 - Razorpay webhook HMAC signature verification
 - Twilio request signature validation
 - Rate limiting on all endpoints
-- HIPAA-ready architecture with audit logging
+- HIPAA-ready architecture
 
 ---
 

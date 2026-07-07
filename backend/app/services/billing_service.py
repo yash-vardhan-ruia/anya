@@ -59,8 +59,8 @@ class BillingService:
         if not appointment:
             raise ValueError(f"Appointment {appointment_id} not found.")
 
-        # Subtotal is the doctor's consultation fee (converted from paise to INR Rupees)
-        subtotal = float(appointment.doctor.consultation_fee) / 100.0
+        # Subtotal is the doctor's consultation fee (already in INR Rupees)
+        subtotal = float(appointment.doctor.consultation_fee)
         gst_rate = settings.GST_RATE
         gst_amount = round(subtotal * (gst_rate / 100.0), 2)
         total_amount = round(subtotal + gst_amount, 2)
