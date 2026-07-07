@@ -62,7 +62,13 @@ class EmailClient:
             await smtp_client.connect()
             
             if not use_tls and self.port == 587:
-                await smtp_client.starttls()
+                is_encrypted = False
+                if smtp_client.transport is not None and hasattr(smtp_client.transport, "get_extra_info"):
+                    ssl_object = smtp_client.transport.get_extra_info("ssl_object")
+                    if ssl_object is not None:
+                        is_encrypted = True
+                if not is_encrypted:
+                    await smtp_client.starttls()
                 
             await smtp_client.login(self.username, self.password)
             await smtp_client.send_message(msg)

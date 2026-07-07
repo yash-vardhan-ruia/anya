@@ -39,10 +39,7 @@ class Settings(BaseSettings):
     # --- Gemini ---
     GEMINI_API_KEY: str = ""
 
-    # --- Twilio ---
-    TWILIO_ACCOUNT_SID: str = ""
-    TWILIO_AUTH_TOKEN: str = ""
-    TWILIO_PHONE_NUMBER: str = ""
+
 
     # --- Razorpay ---
     RAZORPAY_KEY_ID: str = ""

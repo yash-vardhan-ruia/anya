@@ -7,13 +7,13 @@
 ## Architecture
 
 ```
-Patient Phone Call
+Web Browser (Microphone / Speaker)
        ↓
-Twilio Voice Gateway (PSTN → WebSocket)
+Websocket Bridge (/ws/live-voice/{session_id})
        ↓
-FastAPI Voice Server (Media Stream Handler)
-       ↓  ← G.711 μ-law bidirectional audio (resampled to 16kHz/24kHz PCM) →
-Gemini Multimodal Live API (gemini-2.0-flash-exp Speech-to-Speech)
+FastAPI Voice Server (WebSocket Proxy)
+       ↓  ← 16kHz PCM input / 24kHz PCM output audio →
+Gemini Multimodal Live API (gemini-2.5-flash-native-audio-preview-09-2025)
        ↓
 Conversation Orchestrator (Finite State Machine)
        ↓
@@ -21,7 +21,7 @@ Business Logic Services (Appointments, Billing, Payments)
        ↓
 PostgreSQL + Redis
        ↓
-Celery Workers → Notifications (WhatsApp, SMS, Email)
+Celery Workers → Email Notifications (SMTP)
 ```
 
 ---
@@ -34,9 +34,9 @@ Celery Workers → Notifications (WhatsApp, SMS, Email)
 | **Database** | PostgreSQL 15 (Supabase remote), Redis 7 |
 | **Task Queue** | Celery 5 (worker + beat scheduler) |
 | **Frontend** | Next.js 16, TypeScript, Tailwind CSS, ShadCN UI, Zustand |
-| **AI Voice** | Gemini Multimodal Live API, Twilio Voice + Media Streams |
+| **AI Voice** | Gemini Multimodal Live API (`gemini-2.5-flash-native-audio-preview-09-2025`), Browser WebSockets, PCM audio streaming |
 | **Payments** | Razorpay (UPI, Payment Links, Webhooks) |
-| **Notifications** | WhatsApp, SMS, Email via Twilio / SMTP |
+| **Notifications** | Email notifications via SMTP (Jinja2 templates) |
 | **DevOps** | Docker, Docker Compose, GitHub Actions |
 
 ---
@@ -172,10 +172,6 @@ Copy `.env.example` to `.env` and configure the following:
 |----------|----------|-------------|
 | `JWT_SECRET_KEY` | ✅ | Secret key for JWT signing (min 32 chars) |
 | `GEMINI_API_KEY` | ✅ | Gemini API key (for AI voice agent) |
-| `TWILIO_ACCOUNT_SID` | ✅ | Twilio account SID (for voice calls) |
-| `TWILIO_AUTH_TOKEN` | ✅ | Twilio auth token |
-| `TWILIO_PHONE_NUMBER` | ✅ | Twilio phone number (E.164 format) |
-| `TWILIO_WEBHOOK_URL` | ✅ | Public URL Twilio posts call events to |
 | `RAZORPAY_KEY_ID` | ✅ | Razorpay key ID (for payments) |
 | `RAZORPAY_KEY_SECRET` | ✅ | Razorpay key secret |
 | `RAZORPAY_WEBHOOK_SECRET` | ✅ | Razorpay webhook HMAC secret |
@@ -220,8 +216,7 @@ carevoice/
 ## Core Modules
 
 ### 🎙️ AI Voice Agent
-- Answers incoming patient calls via Twilio
-- Conversational appointment booking through Gemini Multimodal Live API (gemini-2.0-flash-exp)
+- Conversational browser-based appointment booking through Gemini Multimodal Live API (`gemini-2.5-flash-native-audio-preview-09-2025`) using WebSockets and real-time 16kHz/24kHz PCM audio streaming.
 - Emergency detection (chest pain, stroke, seizures, etc.)
 - Automatic department and doctor recommendation
 - Payment link generation during the call
@@ -258,7 +253,6 @@ Interactive Swagger UI is available at **http://localhost:8000/docs** once the b
 
 - JWT authentication with RBAC (Super Admin, Admin, Receptionist, Doctor)
 - Razorpay webhook HMAC signature verification
-- Twilio request signature validation
 - Rate limiting on all endpoints
 - HIPAA-ready architecture
 

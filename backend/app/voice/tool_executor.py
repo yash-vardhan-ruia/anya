@@ -100,9 +100,22 @@ async def _handle_create_new_patient(tool_args: dict, session: dict, db: AsyncSe
     # Check if patient already exists by email
     patient = await PatientService.get_or_create_patient_by_email(db, email=email, full_name=full_name)
     
-    # Update gender and other details
-    if hasattr(patient, "gender") and gender:
+    # Update gender and other details (convert age to estimated date of birth)
+    modified = False
+    if gender and getattr(patient, "gender", None) != gender:
         patient.gender = gender
+        modified = True
+        
+    if age and getattr(patient, "date_of_birth", None) is None:
+        try:
+            age_int = int(age)
+            current_year = datetime.date.today().year
+            patient.date_of_birth = datetime.date(current_year - age_int, 1, 1)
+            modified = True
+        except Exception:
+            pass
+            
+    if modified:
         await db.commit()
         await db.refresh(patient)
 
@@ -479,6 +492,17 @@ async def _handle_lock_and_confirm_booking(tool_args: dict, session: dict, db: A
         # Commit everything to the database now that everything succeeded
         await db.commit()
         await db.refresh(appointment)
+
+        # Trigger background Celery task to send payment link email
+        from app.tasks.notification_tasks import send_payment_link_email_task
+        if patient_email:
+            send_payment_link_email_task.delay(
+                email=patient_email,
+                patient_name=patient_name,
+                doctor_name=session.get("doctor_name", "Doctor"),
+                amount_inr=amount_inr,
+                payment_url=payment_url,
+            )
         
     except Exception as e:
         await db.rollback()

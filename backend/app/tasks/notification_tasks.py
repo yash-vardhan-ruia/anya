@@ -31,16 +31,16 @@ async def _async_send_notifications(appointment_id_str: str, event_type: str) ->
                 logger.info("Executing async notification for appointment cancelled", id=appointment_id_str)
                 await NotificationService.send_appointment_cancelled(db, appointment_id)
             else:
-                logger.warning("Unrecognized notification event type in Celery worker", event=event_type)
+                logger.warning("Unrecognized notification event type in Celery worker", evt_type=event_type)
         except Exception as e:
             logger.exception("Failed to send notification via Celery worker", error=str(e), appointment_id=appointment_id_str)
             raise
 
 
-@celery_app.task(name="app.tasks.notification_tasks.send_appointment_notifications")
+@celery_app.task(name="app.tasks.notification_tasks.send_appointment_notifications", queue="notifications")
 def send_appointment_notifications(appointment_id_str: str, event_type: str) -> str:
     """Celery entry point to asynchronously handle SMS/Email dispatch."""
-    logger.info("Celery task received send_appointment_notifications", id=appointment_id_str, event=event_type)
+    logger.info("Celery task received send_appointment_notifications", id=appointment_id_str, evt_type=event_type)
     
     # Run the async database operations within the sync Celery thread
     asyncio.run(_async_send_notifications(appointment_id_str, event_type))
