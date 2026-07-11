@@ -198,8 +198,10 @@ class PaymentService:
                     
                     # Clear Redis session
                     if session_id:
-                        if hasattr(VoiceSessionManager, "clear_session"):
+                        try:
                             await VoiceSessionManager.clear_session(session_id)
+                        except Exception as redis_err:
+                            logger.warning("Failed to clear Redis session after payment", session_id=session_id, error=str(redis_err))
                     
                     logger.info("payment_link.paid: appointment confirmed via appointment_id", appointment_id=appointment_id_str)
                     return

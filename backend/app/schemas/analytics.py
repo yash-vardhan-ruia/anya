@@ -24,7 +24,7 @@ class DashboardStats(BaseModel):
 
 
 class CallAnalytics(BaseModel):
-    """Analytics for Twilio call sessions and Anya conversation rates."""
+    """Analytics for voice call sessions and Anya conversation rates."""
     total_calls: int = Field(..., description="Total calls handled by Anya")
     completed_calls: int = Field(..., description="Calls completed successfully")
     failed_calls: int = Field(..., description="Calls that failed or were abandoned")

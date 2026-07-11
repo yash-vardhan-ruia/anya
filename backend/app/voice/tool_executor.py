@@ -480,8 +480,20 @@ async def _handle_lock_and_confirm_booking(tool_args: dict, session: dict, db: A
         patient_email = session.get("email", "")
         patient_name = session.get("patient_name", "Patient")
         
+        # Apply test/demo discount to Razorpay charge (DB/invoice keeps full amount)
+        razorpay_amount_inr = amount_inr
+        if settings.TEST_FEE_DISCOUNT_PERCENT > 0:
+            razorpay_amount_inr = round(amount_inr * (1 - settings.TEST_FEE_DISCOUNT_PERCENT / 100), 2)
+            razorpay_amount_inr = max(razorpay_amount_inr, 1.0)  # Razorpay minimum ₹1
+            logger.info(
+                "Applying test discount to Razorpay payment link",
+                original=amount_inr,
+                discounted=razorpay_amount_inr,
+                discount_pct=settings.TEST_FEE_DISCOUNT_PERCENT,
+            )
+
         payment_link = razorpay_client.create_payment_link(
-            amount_paise=int(round(amount_inr * 100)),
+            amount_paise=int(round(razorpay_amount_inr * 100)),
             description=f"Appointment with Dr. {session.get('doctor_name', '')}",
             customer_name=patient_name,
             customer_email=patient_email,

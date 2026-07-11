@@ -180,7 +180,7 @@ class NotificationService:
             f"({dept.name}) is scheduled for {appointment.appointment_date} at {appointment.start_time.strftime('%I:%M %p')}. "
             f"Payment of {amount_str} is pending. Please complete your checkout online."
         )
-        # SMS sending bypassed (Twilio disabled)
+        # SMS notification logged to DB only (no SMS gateway configured)
         try:
             db_sms = Notification(
                 patient_id=patient.id,
@@ -263,7 +263,7 @@ class NotificationService:
             f"on {appointment.appointment_date} at {appointment.start_time.strftime('%I:%M %p')} is CONFIRMED. "
             f"We look forward to seeing you. Thank you for choosing CareVoice!"
         )
-        # SMS sending bypassed (Twilio disabled)
+        # SMS notification logged to DB only (no SMS gateway configured)
         try:
             db_sms = Notification(
                 patient_id=patient.id,
@@ -344,7 +344,7 @@ class NotificationService:
             f"on {appointment.appointment_date} has been CANCELLED. If this was an error, "
             f"please reply to reschedule or call our help desk."
         )
-        # SMS sending bypassed (Twilio disabled)
+        # SMS notification logged to DB only (no SMS gateway configured)
         try:
             db_sms = Notification(
                 patient_id=patient.id,

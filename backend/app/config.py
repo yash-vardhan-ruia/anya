@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     GST_RATE: float = 18.0
     SLOT_LOCK_TTL_SECONDS: int = 300
 
+    # --- Admin Seeding ---
+    ADMIN_EMAIL: str = "admin@carevoice.ai"
+    ADMIN_PASSWORD: str = "changeme_in_production"
+    ADMIN_FULL_NAME: str = "System Administrator"
+
+    # --- Testing / Demo ---
+    # Set to e.g. 99 to reduce Razorpay charges by 99% for testing (₹1500 → ₹15)
+    TEST_FEE_DISCOUNT_PERCENT: float = 0.0
+
     # --- CORS ---
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

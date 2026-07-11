@@ -22,13 +22,13 @@ RUN apt-get update \
 # Copy uv binaries
 COPY --from=uv_bin /uv /uvx /bin/
 
-# Copy only requirements first to optimize build cache layering
-COPY requirements.txt .
+# Copy project manifest and lockfile first to optimize Docker layer caching
+COPY pyproject.toml uv.lock ./
 
-# Create virtual environment and install requirements via uv
+# Create virtual environment and install dependencies from lockfile (deterministic, reproducible)
 RUN uv venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
-RUN uv pip install --no-cache -r requirements.txt
+RUN uv sync --frozen --no-dev --no-install-project
 
 
 # Production Final stage

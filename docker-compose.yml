@@ -60,6 +60,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     volumes:
       - ./backend/app:/app/app
     command: >
@@ -83,6 +85,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     volumes:
       - ./backend/app:/app/app
     command: >

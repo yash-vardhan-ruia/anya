@@ -88,7 +88,7 @@ async def live_voice_endpoint(websocket: WebSocket, session_id: str, db: AsyncSe
     # Create CallSession DB record
     call_record = CallSession(
         id=session_id_uuid,
-        twilio_call_sid=f"web_{session_uuid_str}",
+        session_sid=f"web_{session_uuid_str}",
         from_number="web",
         status=CallStatus.IN_PROGRESS,
     )

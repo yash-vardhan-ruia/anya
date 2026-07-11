@@ -1,7 +1,7 @@
 """
 CareVoice AI Hospital Platform - Analytics Service.
 
-Aggregates operational hospital statistics, Twilio call sessions metrics,
+Aggregates operational hospital statistics, browser WebSocket call session metrics,
 and financial revenue charts to power the administrator reporting dashboard.
 """
 
@@ -85,12 +85,18 @@ class AnalyticsService:
         # 2. Appointment count by status
         appt_status_stmt = select(Appointment.status, func.count(Appointment.id)).group_by(Appointment.status)
         appt_status_res = (await db.execute(appt_status_stmt)).all()
-        appt_by_status = {status.value: count for status, count in appt_status_res}
+        appt_by_status = {}
+        for row in appt_status_res:
+            key = row[0].value if hasattr(row[0], 'value') else str(row[0])
+            appt_by_status[key] = row[1]
 
         # 3. Payment count by status
         pay_status_stmt = select(Payment.status, func.count(Payment.id)).group_by(Payment.status)
         pay_status_res = (await db.execute(pay_status_stmt)).all()
-        pay_by_status = {status.value: count for status, count in pay_status_res}
+        pay_by_status = {}
+        for row in pay_status_res:
+            key = row[0].value if hasattr(row[0], 'value') else str(row[0])
+            pay_by_status[key] = row[1]
 
         stats = DashboardStats(
             total_patients=total_patients,
@@ -748,7 +754,7 @@ class AnalyticsService:
                 id=str(doc.id),
                 name=doc.full_name,
                 specialty=doc.specialization,
-                department=doc.department_name or "General Medicine",
+                department=doc.department.name if doc.department else "General Medicine",
                 avatar=None,
                 utilization=round(util_rate, 1),
                 appointmentsToday=appt_count,
