@@ -67,7 +67,11 @@ class Settings(BaseSettings):
     TEST_FEE_DISCOUNT_PERCENT: float = 0.0
 
     # --- CORS ---
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://anya-carevoice.vercel.app"
+    ]
 
 
 settings = Settings()

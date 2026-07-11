@@ -6,7 +6,6 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Appointments', href: '/appointments', icon: 'calendar_month' },
   { title: 'Patients', href: '/patients', icon: 'group' },
   { title: 'Doctors', href: '/doctors', icon: 'stethoscope' },
-  { title: 'Live Calls', href: '/calls', icon: 'call', badge: 'live' },
   { title: 'Billing', href: '/billing', icon: 'receipt_long' },
   { title: 'Analytics', href: '/analytics', icon: 'analytics' },
   { title: 'Settings', href: '/settings', icon: 'settings' },
