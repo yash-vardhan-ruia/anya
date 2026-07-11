@@ -23,13 +23,13 @@ class Settings(BaseSettings):
     BASE_URL: str = "http://localhost:8000"
 
     # --- Database ---
-    DATABASE_URL: str = "postgresql+asyncpg://carevoice_user:password@localhost:5432/carevoice_db"
+    DATABASE_URL: str
 
     # --- Redis ---
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str
 
     # --- JWT Auth ---
-    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
