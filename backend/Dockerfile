@@ -60,7 +60,7 @@ COPY . .
 EXPOSE 8000
 
 # Default health check to verify container liveness
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
 # Launch the FastAPI application using high-performance Uvicorn server

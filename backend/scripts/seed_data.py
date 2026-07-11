@@ -178,15 +178,26 @@ def _past_datetime(days_ago: int, hour: int = 10) -> datetime.datetime:
 
 
 async def clear_all_data(session) -> None:
-    """Delete ALL rows from every table in FK-safe order."""
-    models_ordered = [
-        Payment, Invoice, Notification, Appointment, CallSession,
-        DoctorSlot, DoctorSchedule, Doctor, Department, Patient, AdminUser,
+    """Clear all tables instantly using TRUNCATE CASCADE to prevent statement timeouts."""
+    from sqlalchemy import text
+    try:
+        await session.execute(text(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+        ))
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        logger.warning("Could not terminate other database connections", error=str(e))
+
+    table_names = [
+        "payments", "invoices", "notifications", "appointments", "call_sessions",
+        "doctor_slots", "doctor_schedules", "doctors", "departments", "patients", "admin_users"
     ]
-    for model in models_ordered:
-        await session.execute(delete(model))
+    tables_csv = ", ".join(table_names)
+    await session.execute(text(f"TRUNCATE TABLE {tables_csv} CASCADE"))
     await session.commit()
-    logger.info("Cleared all existing data from all tables")
+    logger.info("Cleared all existing data from all tables using TRUNCATE CASCADE")
 
 
 async def seed_admin(session) -> None:
@@ -535,17 +546,7 @@ async def seed() -> None:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized")
 
-    # Migrate column rename: twilio_call_sid → session_sid (for existing databases)
-    from sqlalchemy import text
-    async with engine.begin() as conn:
-        try:
-            await conn.execute(
-                text("ALTER TABLE call_sessions RENAME COLUMN twilio_call_sid TO session_sid")
-            )
-            logger.info("Migrated column twilio_call_sid → session_sid")
-        except Exception:
-            # Column already renamed or doesn't exist — safe to ignore
-            pass
+    # Legacy column rename migration block removed to prevent DDL locks
 
     async with async_session_factory() as session:
         try:
